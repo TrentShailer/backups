@@ -1,7 +1,10 @@
 mod config;
 
+use std::net::SocketAddr;
+
 use config::load_config;
 use log::{error, info, warn};
+use tokio::net::{TcpListener, TcpStream};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -15,13 +18,25 @@ async fn main() -> anyhow::Result<()> {
         Ok(config) => config,
         Err(error) => {
             error!("{}", error);
-            anyhow::bail!("Error when loading config");
+            panic!("Error when loading config");
         }
     };
 
-    let address = format!("0.0.0.0:{}", config.port);
+    info!("Address: {0}", config.address);
 
-    info!("Address: {0}", address);
+    let listener = TcpListener::bind(&config.address).await?;
 
-    Ok(())
+    info!("Listening on address: {0}", config.address);
+
+    loop {
+        let (mut socket, client_address) = listener.accept().await?;
+
+        tokio::spawn(async move {
+            info!("TCP connection from {}", client_address);
+            handle_connection(&mut socket, client_address).await;
+            info!("TCP connection from {} closed", client_address);
+        });
+    }
 }
+
+async fn handle_connection(socket: &mut TcpStream, client_address: SocketAddr) {}
