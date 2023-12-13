@@ -1,35 +1,17 @@
-use regex::Regex;
-use thiserror::Error;
+use crate::config_types::{Config, ConfigLoadError, RawConfig, TlsConfig};
+use std::fs;
 
-pub struct Config {
-    pub address: String,
-}
+const CONFIG_PATH: &str = "./config.toml";
 
-#[derive(Debug, Error)]
-pub enum ConfigLoadError {
-    #[error("Error loading environment variable '{0}': {1}")]
-    DotEnvyError(String, #[source] dotenvy::Error),
-    #[error("Error loading environment variable '{0}': Invalid format")]
-    VariableFormatError(String),
-    #[error(transparent)]
-    RegexError(#[from] regex::Error),
-}
+pub fn load_config() -> Result<(TlsConfig, Config), ConfigLoadError> {
+    let contents =
+        fs::read_to_string(CONFIG_PATH).map_err(|error| ConfigLoadError::FileReadError(error))?;
 
-fn get_env_variable(key: &str) -> Result<String, ConfigLoadError> {
-    match dotenvy::var(key) {
-        Ok(variable) => Ok(variable),
-        Err(error) => Err(ConfigLoadError::DotEnvyError(String::from(key), error)),
-    }
-}
+    let raw_config: RawConfig = toml::from_str(contents.as_str())
+        .map_err(|error| ConfigLoadError::TomlDeserialzeError(error))?;
 
-pub fn load_config() -> Result<Config, ConfigLoadError> {
-    let address = get_env_variable("ADDRESS")?;
-    let address_regex = Regex::new(r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d{4,5}$")?;
-    if !address_regex.is_match(&address) {
-        return Err(ConfigLoadError::VariableFormatError(String::from(
-            "ADDRESS",
-        )));
-    }
+    let config = Config::from(&raw_config);
+    let tls_config = TlsConfig::from(&raw_config);
 
-    Ok(Config { address })
+    Ok((tls_config, config))
 }
