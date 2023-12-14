@@ -1,5 +1,4 @@
 use thiserror::Error;
-use tracing::debug;
 
 use crate::{backups::backup_types::BackupTypes, config::certificate::load_recipiant};
 
@@ -12,12 +11,9 @@ pub struct ProgramConfig {
 }
 
 impl TryFrom<&RawConfig> for ProgramConfig {
-    #[tracing::instrument(level = "trace", skip_all, err)]
+    #[tracing::instrument(skip_all, err)]
     fn try_from(value: &RawConfig) -> Result<Self, Self::Error> {
-        debug!("Started parsing program config");
-
         let recipiant = load_recipiant(&value.recipiant_path)?;
-        debug!("Loaded recipiant");
 
         Ok(Self {
             recipiant,

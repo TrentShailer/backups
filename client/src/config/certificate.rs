@@ -9,32 +9,25 @@ use rustls::RootCertStore;
 use rustls_pemfile::{certs, private_key};
 use rustls_pki_types::{CertificateDer, PrivateKeyDer};
 use thiserror::Error;
-use tracing::debug;
 
-#[tracing::instrument(level = "trace", skip_all, err)]
+#[tracing::instrument(skip_all, err)]
 pub fn load_cert(
     certificate_path: &PathBuf,
 ) -> Result<Vec<CertificateDer<'static>>, LoadCertError> {
-    debug!("Loading certificate");
-
     let file = File::open(certificate_path).map_err(|e| LoadCertError::OpenFileError(e))?;
-    debug!("Opened file");
 
     certs(&mut BufReader::new(file))
         .collect::<io::Result<Vec<CertificateDer<'static>>>>()
         .map_err(|e| LoadCertError::ReadCertError(e))
 }
 
-#[tracing::instrument(level = "trace", skip_all, err)]
+#[tracing::instrument(skip_all, err)]
 pub fn load_key(key_path: &PathBuf) -> Result<PrivateKeyDer<'static>, LoadKeyError> {
-    debug!("Loading key");
-
     let file = File::open(key_path.clone()).map_err(|e| LoadKeyError::OpenFileError(e))?;
-    debug!("Opened file");
+
     let mut reader = BufReader::new(file);
 
     let maybe_key = private_key(&mut reader).map_err(|e| LoadKeyError::ReadKeyError(e))?;
-    debug!("Read and parsed key");
 
     match maybe_key {
         Some(value) => Ok(value.into()),
@@ -42,16 +35,13 @@ pub fn load_key(key_path: &PathBuf) -> Result<PrivateKeyDer<'static>, LoadKeyErr
     }
 }
 
-#[tracing::instrument(level = "trace", skip_all, err)]
+#[tracing::instrument(skip_all, err)]
 pub fn load_root_cert(root_path: &PathBuf) -> Result<RootCertStore, LoadRootCertError> {
-    debug!("Loading root cert");
     let file = File::open(root_path).map_err(|e| LoadRootCertError::OpenFileError(e))?;
-    debug!("Opened file");
 
     let root_certs = certs(&mut BufReader::new(file))
         .collect::<io::Result<Vec<CertificateDer<'static>>>>()
         .map_err(|e| LoadRootCertError::ReadCertError(e))?;
-    debug!("Read and parsed cert");
 
     let mut root_cert_store = RootCertStore::empty();
 
@@ -60,20 +50,16 @@ pub fn load_root_cert(root_path: &PathBuf) -> Result<RootCertStore, LoadRootCert
             .add(cert.clone())
             .map_err(|e| LoadRootCertError::AddToStoreError(e))?
     }
-    debug!("Added cert to store");
 
     Ok(root_cert_store)
 }
 
-#[tracing::instrument(level = "trace", skip_all, err)]
+#[tracing::instrument(skip_all, err)]
 pub fn load_recipiant(
     recipiant_path: &PathBuf,
 ) -> Result<age::x25519::Recipient, LoadRecipiantError> {
-    debug!("Loading recipiant");
-
     let contents =
         fs::read_to_string(recipiant_path).map_err(|e| LoadRecipiantError::ReadFileError(e))?;
-    debug!("Read file");
 
     match age::x25519::Recipient::from_str(&contents) {
         Ok(v) => Ok(v),

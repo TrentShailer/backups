@@ -2,3 +2,4 @@
 .env
 /ssl
 backup_history.toml
+/logs

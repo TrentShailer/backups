@@ -5,11 +5,11 @@ mod tls;
 use crate::backups::backup_history::{self, load_backup_history};
 use crate::backups::backup_types::BackupTypes;
 use crate::tls::TlsClient;
-use anyhow::bail;
 use config::Config;
 use std::io;
 use tokio::sync::mpsc::channel;
-use tracing::error;
+use tokio::task_local;
+use tracing::{error, span};
 use tracing_subscriber::layer::SubscriberExt;
 
 #[tokio::main]
@@ -21,8 +21,6 @@ async fn main() -> anyhow::Result<()> {
         .with(
             tracing_subscriber::fmt::Layer::default()
                 .pretty()
-                .compact()
-                .with_thread_names(true)
                 .with_file(false)
                 .with_line_number(false)
                 .with_writer(io::stdout),
@@ -30,8 +28,6 @@ async fn main() -> anyhow::Result<()> {
         .with(
             tracing_subscriber::fmt::Layer::default()
                 .pretty()
-                .compact()
-                .with_thread_names(true)
                 .with_file(false)
                 .with_line_number(false)
                 .with_writer(writer),
@@ -48,8 +44,7 @@ async fn main() -> anyhow::Result<()> {
         }
     };
 
-    // TODO update error handling below
-    let mut history = match load_backup_history(&config) {
+    let mut history = match load_backup_history(&config.program_config) {
         Ok(v) => v,
         Err(error) => {
             error!("LoadBackupHistoryError -> {}", error);
@@ -62,8 +57,8 @@ async fn main() -> anyhow::Result<()> {
     let tls_client = match TlsClient::new(config.tls_config).await {
         Ok(v) => v,
         Err(error) => {
-            error!("{}", error);
-            panic!("Failed to create tls client");
+            error!("NewTlsClientError -> {}", error);
+            panic!("NewTlsClientError -> {}", error);
         }
     };
 
@@ -90,18 +85,18 @@ async fn main() -> anyhow::Result<()> {
     let history_manager = tokio::spawn(async move {
         while let Some(data) = backup_rx.recv().await {
             if let Err(error) = history.update_history(data) {
-                error!("Failed to update history: {}", error);
+                error!("UpdateHistoryError -> {}", error);
                 continue;
             }
             if let Err(error) = history.save_async().await {
-                error!("Failed to save history: {}", error);
+                error!("SaveHistoryError -> {}", error);
             }
         }
     });
 
     if let Err(error) = history_manager.await {
-        error!("{}", error);
-        panic!("Failed to await history manager");
+        error!("AwaitHistoryManagerError -> {}", error);
+        panic!("AwaitHistoryManagerError -> {}", error);
     };
 
     Ok(())

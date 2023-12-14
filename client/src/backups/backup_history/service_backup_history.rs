@@ -9,6 +9,7 @@ pub struct ServiceBackupHistory {
 }
 
 impl ServiceBackupHistory {
+    #[tracing::instrument(skip_all)]
     pub fn new(folder_name: String, backup_names: Vec<String>) -> Self {
         let backups: Vec<BackupHistory> = backup_names
             .iter()
@@ -21,6 +22,7 @@ impl ServiceBackupHistory {
         }
     }
 
+    #[tracing::instrument(skip_all)]
     pub fn add_missing(&mut self, backup_names: Vec<String>) {
         for backup_name in backup_names.iter() {
             if !self

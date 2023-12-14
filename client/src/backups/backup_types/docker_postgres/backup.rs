@@ -3,7 +3,6 @@ use std::{
     time::SystemTime,
 };
 
-use log::error;
 use thiserror::Error;
 use tokio::{
     process::Command,
@@ -21,6 +20,7 @@ use crate::{
 
 use super::DockerPostgresBackupConfig;
 
+#[tracing::instrument(skip_all, err)]
 pub async fn make_backup(
     config: &DockerPostgresBackupConfig,
     backup_config: &BackupConfig,
@@ -54,7 +54,8 @@ pub async fn make_backup(
     Ok(())
 }
 
-pub async fn get_file(config: &DockerPostgresBackupConfig) -> Result<Vec<u8>, FileError> {
+#[tracing::instrument(skip_all, err)]
+pub async fn get_file(config: &DockerPostgresBackupConfig) -> Result<Vec<u8>, GetFileError> {
     let args = [
         "exec",
         config.docker_container.as_str(),
@@ -68,25 +69,25 @@ pub async fn get_file(config: &DockerPostgresBackupConfig) -> Result<Vec<u8>, Fi
         .args(&args)
         .output()
         .await
-        .map_err(|e| FileError::CommandError(e))?;
+        .map_err(|e| GetFileError::CommandError(e))?;
 
     Ok(output.stdout)
 }
 
 #[derive(Debug, Error)]
-pub enum FileError {
-    #[error("Failed to run command: {0}")]
+pub enum GetFileError {
+    #[error("CommandError -> {0}")]
     CommandError(#[source] io::Error),
 }
 
 #[derive(Debug, Error)]
 pub enum MakeBackupError {
-    #[error("Failed to run command: {0}")]
-    CommandError(#[from] FileError),
-    #[error("Failed to encrypt file: {0}")]
+    #[error("GetFileError -> {0}")]
+    GetFileError(#[from] GetFileError),
+    #[error("EncryptError -> {0}")]
     EncryptError(#[from] EncryptError),
-    #[error("Failed to upload file: {0}")]
+    #[error("UploadError -> {0}")]
     UploadError(#[from] tls_client::UploadError),
-    #[error("Failed to send history: {0}")]
+    #[error("HistorySendError -> {0}")]
     HistroySendError(#[from] SendError<ChannelData>),
 }
