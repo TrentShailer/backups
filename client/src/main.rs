@@ -1,31 +1,35 @@
 mod backups;
 mod config;
+mod logger;
 mod tls;
 
-use crate::backups::backup_history::{self, load_backup_history};
-use crate::backups::backup_types::BackupTypes;
-use crate::tls::TlsClient;
+use crate::{
+    backups::{
+        backup_history::{self, load_backup_history},
+        backup_types::BackupTypes,
+    },
+    tls::TlsClient,
+};
 use config::Config;
-use log::error;
 use tokio::sync::mpsc::channel;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    pretty_env_logger::init();
+    pretty_env_logger::init_timed();
 
     let config = match Config::load() {
         Ok(v) => v,
         Err(error) => {
-            error!("ConfigLoadError -> {}", error);
-            panic!("ConfigLoadError -> {}", error);
+            app_error!("ConfigLoadError\n{}", error);
+            panic!("ConfigLoadError\n{}", error);
         }
     };
 
     let mut history = match load_backup_history(&config.program_config) {
         Ok(v) => v,
         Err(error) => {
-            error!("LoadBackupHistoryError -> {}", error);
-            panic!("LoadBackupHistoryError -> {}", error);
+            app_error!("LoadBackupHistoryError\n{}", error);
+            panic!("LoadBackupHistoryError\n{}", error);
         }
     };
 
@@ -34,8 +38,8 @@ async fn main() -> anyhow::Result<()> {
     let tls_client = match TlsClient::new(config.tls_config).await {
         Ok(v) => v,
         Err(error) => {
-            error!("NewTlsClientError -> {}", error);
-            panic!("NewTlsClientError -> {}", error);
+            app_error!("NewTlsClientError\n{}", error);
+            panic!("NewTlsClientError\n{}", error);
         }
     };
 
@@ -62,18 +66,18 @@ async fn main() -> anyhow::Result<()> {
     let history_manager = tokio::spawn(async move {
         while let Some(data) = backup_rx.recv().await {
             if let Err(error) = history.update_history(data) {
-                error!("UpdateHistoryError -> {}", error);
+                app_error!("UpdateHistoryError\n{}", error);
                 continue;
             }
             if let Err(error) = history.save_async().await {
-                error!("SaveHistoryError -> {}", error);
+                app_error!("SaveHistoryError\n{}", error);
             }
         }
     });
 
     if let Err(error) = history_manager.await {
-        error!("AwaitHistoryManagerError -> {}", error);
-        panic!("AwaitHistoryManagerError -> {}", error);
+        app_error!("AwaitHistoryManagerError\n{}", error);
+        panic!("AwaitHistoryManagerError\n{}", error);
     };
 
     Ok(())

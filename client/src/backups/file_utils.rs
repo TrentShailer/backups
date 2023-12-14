@@ -32,9 +32,9 @@ pub fn get_file_name() -> String {
 
 #[derive(Debug, Error)]
 pub enum EncryptError {
-    #[error("AgeWrapError -> {0}")]
+    #[error("AgeWrapError\n{0}")]
     AgeWrapError(#[source] age::EncryptError),
-    #[error("WriteError -> {0}")]
+    #[error("WriteError\n{0}")]
     WriteError(#[source] io::Error),
     #[error("NoRecipiantError")]
     NoRecipiantError,

@@ -114,25 +114,25 @@ pub struct OutgoingBackupConfig {
 
 #[derive(Debug, Error)]
 pub enum NewClientError {
-    #[error("ClientConfigError -> {0}")]
+    #[error("ClientConfigError\n{0}")]
     ClientConfigError(#[source] rustls::Error),
-    #[error("DomainError('{0}') -> {1}")]
+    #[error("DomainError('{0}')\n{1}")]
     DomainError(String, #[source] InvalidDnsNameError),
 }
 #[derive(Debug, Error)]
 pub enum UploadError {
-    #[error("TcpConnectError -> {0}")]
+    #[error("TcpConnectError\n{0}")]
     TcpConnectError(#[source] io::Error),
-    #[error("TlsConnectError -> {0}")]
+    #[error("TlsConnectError\n{0}")]
     TlsConnectError(#[source] io::Error),
-    #[error("SerializeFileConfigError -> {0}")]
+    #[error("SerializeFileConfigError\n{0}")]
     SerializeFileConfigError(#[source] toml::ser::Error),
-    #[error("SendFileConfigError -> {0}")]
+    #[error("SendFileConfigError\n{0}")]
     SendFileConfigError(#[source] io::Error),
-    #[error("ReadResponseError -> {0}")]
+    #[error("ReadResponseError\n{0}")]
     ReadResponseError(#[source] io::Error),
-    #[error("ServerError -> {0}")]
+    #[error("ServerError\n{0}")]
     ServerError(String),
-    #[error("SendFileError -> {0}")]
+    #[error("SendFileError\n{0}")]
     SendFileError(#[source] io::Error),
 }

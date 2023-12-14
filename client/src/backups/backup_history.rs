@@ -15,9 +15,9 @@ pub struct ChannelData {
 
 #[derive(Error, Debug)]
 pub enum BackupHistoryError {
-    #[error("LoadHistoryError -> {0}")]
+    #[error("LoadHistoryError\n{0}")]
     LoadHistoryError(#[from] LoadHistoryError),
-    #[error("WriteHistoryError -> {0}")]
+    #[error("WriteHistoryError\n{0}")]
     WriteHistoryError(#[from] WriteHistoryError),
 }
 

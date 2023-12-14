@@ -166,7 +166,7 @@ impl History {
 
 #[derive(Debug, Error)]
 pub enum WriteHistoryError {
-    #[error("SerializeError -> {0}")]
+    #[error("SerializeError\n{0}")]
     SerialzeError(#[from] toml::ser::Error),
     #[error("WriteError {0}")]
     WriteError(#[from] io::Error),
@@ -174,22 +174,22 @@ pub enum WriteHistoryError {
 
 #[derive(Error, Debug)]
 pub enum LoadHistoryError {
-    #[error("ReadError -> {0}")]
+    #[error("ReadError\n{0}")]
     ReadError(#[source] io::Error),
-    #[error("ParseError -> {0}")]
+    #[error("ParseError\n{0}")]
     ParseError(#[source] toml::de::Error),
 }
 
 #[derive(Error, Debug)]
 pub enum UpdateHistoryError {
-    #[error("MissingSerivceError -> {0}")]
+    #[error("MissingSerivceError\n{0}")]
     MissingService(String),
-    #[error("MissingBackupError -> {0}")]
+    #[error("MissingBackupError\n{0}")]
     MissingBackup(String),
 }
 #[derive(Error, Debug)]
 pub enum ShouldMakeBackupError {
-    #[error("NotFoundError -> {0}/{1}")]
+    #[error("NotFoundError\n{0}/{1}")]
     NotFoundError(String, String),
     #[error("ClockChangeError: -{0}s")]
     ClockChangeError(u64),

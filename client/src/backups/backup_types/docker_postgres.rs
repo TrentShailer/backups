@@ -1,10 +1,10 @@
 mod backup;
 
 use crate::{
+    backup_error,
     backups::backup_history::{history::History, ChannelData},
     tls::TlsClient,
 };
-use log::error;
 use serde::Deserialize;
 use tokio::{sync::mpsc::Sender, time::sleep};
 
@@ -37,6 +37,7 @@ impl DockerPostgresBackupConfig {
             let history = history.clone();
             let config = self.clone();
             let tls_client = tls_client.clone();
+            let folder_name = self.folder_name.clone();
 
             tokio::spawn(async move {
                 let should_make_backup = match history
@@ -49,8 +50,13 @@ impl DockerPostgresBackupConfig {
                 {
                     Ok(v) => v,
                     Err(error) => {
-                        error!("ShouldMakeBackupError -> {0}", error);
-                        panic!("ShouldMakeBackupError -> {0}", error)
+                        backup_error!(
+                            &folder_name,
+                            &backup.folder_name,
+                            "ShouldMakeBackupError\n{}",
+                            error
+                        );
+                        panic!("ShouldMakeBackupError\n{0}", error)
                     }
                 };
 
@@ -58,7 +64,12 @@ impl DockerPostgresBackupConfig {
                     if let Err(error) =
                         make_backup(&config, &backup, &age_cert, &history_writer, &tls_client).await
                     {
-                        error!("MakeBackupError -> {}", error);
+                        backup_error!(
+                            &folder_name,
+                            &backup.folder_name,
+                            "MakeBackupError\n{}",
+                            error
+                        );
                     };
                 }
 
@@ -67,7 +78,12 @@ impl DockerPostgresBackupConfig {
                     if let Err(error) =
                         make_backup(&config, &backup, &age_cert, &history_writer, &tls_client).await
                     {
-                        error!("MakeBackupError -> {}", error);
+                        backup_error!(
+                            &folder_name,
+                            &backup.folder_name,
+                            "MakeBackupError\n{}",
+                            error
+                        );
                     };
                 }
             });

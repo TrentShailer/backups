@@ -74,18 +74,18 @@ pub async fn get_file(config: &DockerPostgresBackupConfig) -> Result<Vec<u8>, Ge
 
 #[derive(Debug, Error)]
 pub enum GetFileError {
-    #[error("CommandError -> {0}")]
+    #[error("CommandError\n{0}")]
     CommandError(#[source] io::Error),
 }
 
 #[derive(Debug, Error)]
 pub enum MakeBackupError {
-    #[error("GetFileError -> {0}")]
+    #[error("GetFileError\n{0}")]
     GetFileError(#[from] GetFileError),
-    #[error("EncryptError -> {0}")]
+    #[error("EncryptError\n{0}")]
     EncryptError(#[from] EncryptError),
-    #[error("UploadError -> {0}")]
+    #[error("UploadError\n{0}")]
     UploadError(#[from] tls_client::UploadError),
-    #[error("HistorySendError -> {0}")]
+    #[error("HistorySendError\n{0}")]
     HistroySendError(#[from] SendError<ChannelData>),
 }

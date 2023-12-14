@@ -38,10 +38,10 @@ impl TryFrom<&RawConfig> for TlsConfig {
 
 #[derive(Debug, Error)]
 pub enum ParseTlsConfigError {
-    #[error("LoadCertError -> {0}")]
+    #[error("LoadCertError\n{0}")]
     LoadCertError(#[from] LoadCertError),
-    #[error("LoadKeyError -> {0}")]
+    #[error("LoadKeyError\n{0}")]
     LoadKeyError(#[from] LoadKeyError),
-    #[error("LoadRootCertError -> {0}")]
+    #[error("LoadRootCertError\n{0}")]
     LoadRootCertError(#[from] LoadRootCertError),
 }
