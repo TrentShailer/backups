@@ -3,3 +3,4 @@
 /ssl
 backup_history.toml
 /logs
+config.toml
