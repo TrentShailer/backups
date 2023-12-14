@@ -1,8 +1,10 @@
 use std::{
     io::{self},
+    string::FromUtf8Error,
     time::SystemTime,
 };
 
+use log::info;
 use thiserror::Error;
 use tokio::{
     process::Command,
@@ -15,7 +17,7 @@ use crate::{
         backup_types::BackupConfig,
         file_utils::{encrypt_file, get_file_name, EncryptError},
     },
-    tls::tls_client::{self, OutgoingBackupConfig, TlsClient},
+    tls::tls_client::{self, Payload, TlsClient},
 };
 
 use super::DockerPostgresBackupConfig;
@@ -33,14 +35,15 @@ pub async fn make_backup(
 
     let file_name = get_file_name();
 
-    let file_config = OutgoingBackupConfig {
+    let payload = Payload {
         file_hash,
         file_name,
         folder: config.folder_name.clone(),
         sub_folder: backup_config.folder_name.clone(),
+        file: encrypted_file,
     };
 
-    tls_client.upload_file(file_config, encrypted_file).await?;
+    tls_client.upload_file(payload).await?;
 
     history_writer
         .send(ChannelData {
@@ -69,6 +72,12 @@ pub async fn get_file(config: &DockerPostgresBackupConfig) -> Result<Vec<u8>, Ge
         .await
         .map_err(|e| GetFileError::CommandError(e))?;
 
+    if !output.status.success() {
+        let output_error = String::from_utf8(output.stderr.clone())
+            .map_err(|e| GetFileError::ConvertCommandResultError(e))?;
+        return Err(GetFileError::CommandResultError(output_error));
+    }
+
     Ok(output.stdout)
 }
 
@@ -76,6 +85,10 @@ pub async fn get_file(config: &DockerPostgresBackupConfig) -> Result<Vec<u8>, Ge
 pub enum GetFileError {
     #[error("CommandError\n{0}")]
     CommandError(#[source] io::Error),
+    #[error("ComandResultError\n{0}")]
+    CommandResultError(String),
+    #[error("ConvertCommandResultError\n{0}")]
+    ConvertCommandResultError(#[source] FromUtf8Error),
 }
 
 #[derive(Debug, Error)]

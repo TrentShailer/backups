@@ -1,6 +1,7 @@
 use std::{io, sync::Arc};
 
 use blake3::Hash;
+use log::info;
 use rustls_pki_types::{InvalidDnsNameError, ServerName};
 use serde::Serialize;
 use thiserror::Error;
@@ -40,11 +41,7 @@ impl TlsClient {
         })
     }
 
-    pub async fn upload_file(
-        &self,
-        file_config: OutgoingBackupConfig,
-        file: Vec<u8>,
-    ) -> Result<(), UploadError> {
+    pub async fn upload_file(&self, payload: Payload) -> Result<(), UploadError> {
         let stream = TcpStream::connect((self.address.clone(), self.port))
             .await
             .map_err(|e| UploadError::TcpConnectError(e))?;
@@ -55,36 +52,15 @@ impl TlsClient {
             .await
             .map_err(|e| UploadError::TlsConnectError(e))?;
 
-        // send backup config
-        let file_config_string =
-            toml::to_string(&file_config).map_err(|e| UploadError::SerializeFileConfigError(e))?;
+        // send payload
+        let payload =
+            toml::to_string(&payload).map_err(|e| UploadError::SerializeFileConfigError(e))?;
 
-        stream
-            .write_all(file_config_string.as_bytes())
-            .await
-            .map_err(|e| UploadError::SendFileConfigError(e))?;
-        stream
-            .flush()
-            .await
-            .map_err(|e| UploadError::SendFileConfigError(e))?;
-
-        let mut response = String::new();
-        stream
-            .read_to_string(&mut response)
-            .await
-            .map_err(|e| UploadError::ReadResponseError(e))?;
-
-        if response != String::from("ready") {
-            return Err(UploadError::ServerError(response));
-        }
-
-        // send file
         loop {
             stream
-                .write_all(&file)
+                .write_all(payload.as_bytes())
                 .await
                 .map_err(|e| UploadError::SendFileError(e))?;
-
             stream
                 .flush()
                 .await
@@ -92,10 +68,11 @@ impl TlsClient {
 
             let mut response = String::new();
             if let Err(error) = stream.read_to_string(&mut response).await {
-                match error.kind() {
-                    io::ErrorKind::ConnectionAborted => return Ok(()),
-                    _ => return Err(UploadError::ReadResponseError(error)),
-                }
+                return Err(UploadError::ReadResponseError(error));
+            }
+
+            if response == String::from("success") {
+                return Ok(());
             }
 
             if response != String::from("retry") {
@@ -104,12 +81,14 @@ impl TlsClient {
         }
     }
 }
+
 #[derive(Serialize)]
-pub struct OutgoingBackupConfig {
+pub struct Payload {
     pub folder: String,
     pub sub_folder: String,
     pub file_name: String,
     pub file_hash: Hash,
+    pub file: Vec<u8>,
 }
 
 #[derive(Debug, Error)]
@@ -127,8 +106,6 @@ pub enum UploadError {
     TlsConnectError(#[source] io::Error),
     #[error("SerializeFileConfigError\n{0}")]
     SerializeFileConfigError(#[source] toml::ser::Error),
-    #[error("SendFileConfigError\n{0}")]
-    SendFileConfigError(#[source] io::Error),
     #[error("ReadResponseError\n{0}")]
     ReadResponseError(#[source] io::Error),
     #[error("ServerError\n{0}")]
