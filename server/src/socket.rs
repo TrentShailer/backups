@@ -5,7 +5,10 @@ use log::{error, info, warn};
 use rustls::server::{VerifierBuilderError, WebPkiClientVerifier};
 use std::{io, sync::Arc};
 use thiserror::Error;
-use tokio::{io::AsyncWriteExt, net::TcpListener};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::TcpListener,
+};
 use tokio_rustls::TlsAcceptor;
 
 use crate::{
@@ -49,6 +52,9 @@ pub async fn create_socket(
 
 #[derive(Debug, Error)]
 pub enum ConnectionError {
+    #[error("ReadPayloadError\n{0}")]
+    ReadPayloadError(#[source] io::Error),
+    // ----
     #[error("Failed to parse backup config")]
     BackupConfigError(#[source] IncomingBackupConfigError),
     #[error("Failed to send ready message to client: {0}")]
@@ -67,6 +73,25 @@ pub async fn handle_connection(
     stream: &mut tokio_rustls::server::TlsStream<tokio::net::TcpStream>,
     server_config: Config,
 ) -> Result<(), ConnectionError> {
+    // TODO rewrite everything
+    // try recieve payload
+    // 		try parse payload
+    //		try check with own config
+    //		try decrypt
+    //		try save
+    //		try check hash
+    // respond with success, retry, or an error
+    // first implement without retires
+
+    // read payload
+    let mut buffer = vec![0; 1024];
+    let mut response = String::new();
+    if let Err(error) = stream.read_to_string(&mut response).await {
+        return Err(ConnectionError::ReadPayloadError(error));
+    }
+
+    info!("{}", response);
+
     let backup_config = recieve_backup_config(&server_config, stream)
         .await
         .map_err(|e| ConnectionError::BackupConfigError(e))?;

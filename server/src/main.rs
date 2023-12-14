@@ -11,7 +11,7 @@ use crate::socket::{create_socket, handle_connection};
 
 #[tokio::main]
 async fn main() {
-    pretty_env_logger::init();
+    pretty_env_logger::init_timed();
 
     let (tls_config, config) = match load_config() {
         Ok(config) => {

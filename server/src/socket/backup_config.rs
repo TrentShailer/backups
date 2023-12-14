@@ -2,7 +2,6 @@ use std::io;
 
 use blake3::Hash;
 use log::debug;
-use rustls::client;
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::{io::AsyncReadExt, net::TcpStream};
