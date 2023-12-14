@@ -21,7 +21,6 @@ pub struct TlsClient {
 }
 
 impl TlsClient {
-    #[tracing::instrument(skip_all, err)]
     pub async fn new(config: TlsConfig) -> Result<Self, NewClientError> {
         let tls_config = rustls::ClientConfig::builder()
             .with_root_certificates(config.root_ca)
@@ -41,7 +40,6 @@ impl TlsClient {
         })
     }
 
-    #[tracing::instrument(skip_all, err)]
     pub async fn upload_file(
         &self,
         file_config: OutgoingBackupConfig,

@@ -11,7 +11,6 @@ pub struct ProgramConfig {
 }
 
 impl TryFrom<&RawConfig> for ProgramConfig {
-    #[tracing::instrument(skip_all, err)]
     fn try_from(value: &RawConfig) -> Result<Self, Self::Error> {
         let recipiant = load_recipiant(&value.recipiant_path)?;
 

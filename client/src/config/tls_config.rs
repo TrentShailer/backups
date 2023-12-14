@@ -18,7 +18,6 @@ pub struct TlsConfig {
 }
 
 impl TryFrom<&RawConfig> for TlsConfig {
-    #[tracing::instrument(skip_all, err)]
     fn try_from(value: &RawConfig) -> Result<Self, Self::Error> {
         let certificate = load_cert(&value.certificate_path)?;
 

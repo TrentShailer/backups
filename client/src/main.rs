@@ -6,35 +6,12 @@ use crate::backups::backup_history::{self, load_backup_history};
 use crate::backups::backup_types::BackupTypes;
 use crate::tls::TlsClient;
 use config::Config;
-use std::io;
+use log::error;
 use tokio::sync::mpsc::channel;
-use tokio::task_local;
-use tracing::{error, span};
-use tracing_subscriber::layer::SubscriberExt;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let file_appender = tracing_appender::rolling::daily("logs", "log");
-    let (writer, _guard) = tracing_appender::non_blocking(file_appender);
-
-    let collector = tracing_subscriber::registry()
-        .with(
-            tracing_subscriber::fmt::Layer::default()
-                .pretty()
-                .with_file(false)
-                .with_line_number(false)
-                .with_writer(io::stdout),
-        )
-        .with(
-            tracing_subscriber::fmt::Layer::default()
-                .pretty()
-                .with_file(false)
-                .with_line_number(false)
-                .with_writer(writer),
-        );
-
-    tracing::subscriber::set_global_default(collector)
-        .expect("Failed to create tracing subscriber");
+    pretty_env_logger::init();
 
     let config = match Config::load() {
         Ok(v) => v,

@@ -3,7 +3,6 @@ use std::io::{self, Write};
 use chrono::{DateTime, Local};
 use thiserror::Error;
 
-#[tracing::instrument(skip_all, err)]
 pub async fn encrypt_file(
     file: &Vec<u8>,
     cert: &age::x25519::Recipient,
@@ -26,7 +25,6 @@ pub async fn encrypt_file(
     Ok(encrypted)
 }
 
-#[tracing::instrument(skip_all)]
 pub fn get_file_name() -> String {
     let datetime: DateTime<Local> = Local::now();
     datetime.format("%Y-%m-%d_%H-%M-%S").to_string()

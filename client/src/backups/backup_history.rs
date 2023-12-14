@@ -21,7 +21,6 @@ pub enum BackupHistoryError {
     WriteHistoryError(#[from] WriteHistoryError),
 }
 
-#[tracing::instrument(skip_all, err)]
 pub fn load_backup_history(config: &ProgramConfig) -> Result<History, BackupHistoryError> {
     let mut backup_history: History = History::load()?;
 

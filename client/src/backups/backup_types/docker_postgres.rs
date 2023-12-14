@@ -4,9 +4,9 @@ use crate::{
     backups::backup_history::{history::History, ChannelData},
     tls::TlsClient,
 };
+use log::error;
 use serde::Deserialize;
 use tokio::{sync::mpsc::Sender, time::sleep};
-use tracing::{error, span};
 
 use self::backup::make_backup;
 
@@ -22,7 +22,6 @@ pub struct DockerPostgresBackupConfig {
 }
 
 impl DockerPostgresBackupConfig {
-    #[tracing::instrument(skip_all)]
     pub async fn spawn_tasks(
         &self,
         age_cert: age::x25519::Recipient,
@@ -40,7 +39,7 @@ impl DockerPostgresBackupConfig {
             let tls_client = tls_client.clone();
 
             tokio::spawn(async move {
-                if history
+                let should_make_backup = match history
                     .should_make_backup(
                         &config.folder_name,
                         &backup.folder_name,
@@ -48,6 +47,14 @@ impl DockerPostgresBackupConfig {
                     )
                     .await
                 {
+                    Ok(v) => v,
+                    Err(error) => {
+                        error!("ShouldMakeBackupError -> {0}", error);
+                        panic!("ShouldMakeBackupError -> {0}", error)
+                    }
+                };
+
+                if should_make_backup {
                     if let Err(error) =
                         make_backup(&config, &backup, &age_cert, &history_writer, &tls_client).await
                     {
@@ -67,7 +74,6 @@ impl DockerPostgresBackupConfig {
         }
     }
 
-    #[tracing::instrument(skip_all)]
     pub fn get_names(&self) -> (String, Vec<String>) {
         let backup_folder_names: Vec<String> = self
             .backup_configs

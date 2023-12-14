@@ -20,7 +20,6 @@ use crate::{
 
 use super::DockerPostgresBackupConfig;
 
-#[tracing::instrument(skip_all, err)]
 pub async fn make_backup(
     config: &DockerPostgresBackupConfig,
     backup_config: &BackupConfig,
@@ -54,7 +53,6 @@ pub async fn make_backup(
     Ok(())
 }
 
-#[tracing::instrument(skip_all, err)]
 pub async fn get_file(config: &DockerPostgresBackupConfig) -> Result<Vec<u8>, GetFileError> {
     let args = [
         "exec",

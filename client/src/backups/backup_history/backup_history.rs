@@ -7,7 +7,6 @@ pub struct BackupHistory {
 }
 
 impl BackupHistory {
-    #[tracing::instrument(skip_all)]
     pub fn new(folder_name: String) -> Self {
         Self {
             folder_name,

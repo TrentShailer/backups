@@ -8,7 +8,6 @@ pub use tls_config::TlsConfig;
 
 use std::{fs, io};
 use thiserror::Error;
-use tracing::instrument;
 
 use crate::config::raw_config::RawConfig;
 
@@ -22,7 +21,6 @@ pub struct Config {
 }
 
 impl Config {
-    #[instrument(skip_all, err)]
     pub fn load() -> Result<Self, ConfigLoadError> {
         let contents = fs::read_to_string(CONFIG_PATH)
             .map_err(|error| ConfigLoadError::FileReadError(error))?;

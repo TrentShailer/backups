@@ -10,7 +10,6 @@ use rustls_pemfile::{certs, private_key};
 use rustls_pki_types::{CertificateDer, PrivateKeyDer};
 use thiserror::Error;
 
-#[tracing::instrument(skip_all, err)]
 pub fn load_cert(
     certificate_path: &PathBuf,
 ) -> Result<Vec<CertificateDer<'static>>, LoadCertError> {
@@ -21,7 +20,6 @@ pub fn load_cert(
         .map_err(|e| LoadCertError::ReadCertError(e))
 }
 
-#[tracing::instrument(skip_all, err)]
 pub fn load_key(key_path: &PathBuf) -> Result<PrivateKeyDer<'static>, LoadKeyError> {
     let file = File::open(key_path.clone()).map_err(|e| LoadKeyError::OpenFileError(e))?;
 
@@ -35,7 +33,6 @@ pub fn load_key(key_path: &PathBuf) -> Result<PrivateKeyDer<'static>, LoadKeyErr
     }
 }
 
-#[tracing::instrument(skip_all, err)]
 pub fn load_root_cert(root_path: &PathBuf) -> Result<RootCertStore, LoadRootCertError> {
     let file = File::open(root_path).map_err(|e| LoadRootCertError::OpenFileError(e))?;
 
@@ -54,7 +51,6 @@ pub fn load_root_cert(root_path: &PathBuf) -> Result<RootCertStore, LoadRootCert
     Ok(root_cert_store)
 }
 
-#[tracing::instrument(skip_all, err)]
 pub fn load_recipiant(
     recipiant_path: &PathBuf,
 ) -> Result<age::x25519::Recipient, LoadRecipiantError> {

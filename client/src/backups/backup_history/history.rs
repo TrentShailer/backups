@@ -2,6 +2,7 @@ use crate::{backups::backup_types::BackupTypes, config::ProgramConfig};
 
 use super::{service_backup_history::ServiceBackupHistory, ChannelData};
 
+use log::error;
 use serde::{Deserialize, Serialize};
 use std::{
     fs, io,
@@ -9,7 +10,6 @@ use std::{
     time::{Duration, SystemTime},
 };
 use thiserror::Error;
-use tracing::error;
 
 const BACKUP_HISTORY_PATH: &str = "./backup_history.toml";
 
@@ -19,12 +19,10 @@ pub struct History {
 }
 
 impl History {
-    #[tracing::instrument(skip_all)]
     pub fn new() -> Self {
         History { services: vec![] }
     }
 
-    #[tracing::instrument(skip_all, err)]
     pub fn load() -> Result<Self, LoadHistoryError> {
         let file_path = Path::new(BACKUP_HISTORY_PATH);
         if file_path.exists() {
@@ -39,7 +37,6 @@ impl History {
         Ok(Self::new())
     }
 
-    #[tracing::instrument(skip_all)]
     pub fn find(
         &self,
         folder_name: &String,
@@ -66,7 +63,6 @@ impl History {
         Some(backup.last_backed_up)
     }
 
-    #[tracing::instrument(skip_all)]
     pub fn add_missing_entries(&mut self, config: &ProgramConfig) {
         for service in config.service_config.iter() {
             let (service_folder_name, backup_folder_names) = match service {
@@ -91,7 +87,6 @@ impl History {
         }
     }
 
-    #[tracing::instrument(skip_all, err)]
     pub fn update_history(&mut self, data: ChannelData) -> Result<(), UpdateHistoryError> {
         let service = match self
             .services
@@ -116,7 +111,6 @@ impl History {
         Ok(())
     }
 
-    #[tracing::instrument(skip_all, err)]
     pub fn save(&self) -> Result<(), WriteHistoryError> {
         let contents = toml::to_string(self)?;
         fs::write(Path::new(BACKUP_HISTORY_PATH), contents)?;
@@ -124,7 +118,6 @@ impl History {
         Ok(())
     }
 
-    #[tracing::instrument(skip_all, err)]
     pub async fn save_async(&self) -> Result<(), WriteHistoryError> {
         let contents = toml::to_string(self)?;
         tokio::fs::write(Path::new(BACKUP_HISTORY_PATH), contents).await?;
@@ -132,18 +125,19 @@ impl History {
         Ok(())
     }
 
-    #[tracing::instrument(skip_all)]
     pub async fn should_make_backup(
         &self,
         folder: &String,
         sub_folder: &String,
         backup_interval: Duration,
-    ) -> bool {
+    ) -> Result<bool, ShouldMakeBackupError> {
         let last_backed_up = match self.find(folder, sub_folder) {
             Some(v) => v,
             None => {
-                error!("HistoryBackupNotFound -> {}/{}", folder, sub_folder);
-                panic!("HistoryBackupNotFound -> {}/{}", folder, sub_folder);
+                return Err(ShouldMakeBackupError::NotFoundError(
+                    folder.clone(),
+                    sub_folder.clone(),
+                ));
             }
         };
 
@@ -152,8 +146,9 @@ impl History {
             Err(error) => {
                 // last backed up was ahead by more than 5 seconds, panic
                 if error.duration() > Duration::from_secs(5) {
-                    error!("ClockChangeError -> -{}s", error.duration().as_secs());
-                    panic!("ClockChangeError -> -{}s", error.duration().as_secs());
+                    return Err(ShouldMakeBackupError::ClockChangeError(
+                        error.duration().as_secs(),
+                    ));
                 }
 
                 Duration::from_secs(0)
@@ -161,9 +156,9 @@ impl History {
         };
 
         if duration_since > backup_interval {
-            return true;
+            return Ok(true);
         }
-        return false;
+        Ok(false)
     }
 }
 
@@ -191,4 +186,11 @@ pub enum UpdateHistoryError {
     MissingService(String),
     #[error("MissingBackupError -> {0}")]
     MissingBackup(String),
+}
+#[derive(Error, Debug)]
+pub enum ShouldMakeBackupError {
+    #[error("NotFoundError -> {0}/{1}")]
+    NotFoundError(String, String),
+    #[error("ClockChangeError: -{0}s")]
+    ClockChangeError(u64),
 }
