@@ -22,11 +22,9 @@ pub struct Config {
 
 impl Config {
     pub fn load() -> Result<Self, ConfigLoadError> {
-        let contents = fs::read_to_string(CONFIG_PATH)
-            .map_err(|error| ConfigLoadError::FileReadError(error))?;
+        let contents = fs::read_to_string(CONFIG_PATH).map_err(ConfigLoadError::FileReadError)?;
 
-        let raw_config: RawConfig = toml::from_str(contents.as_str())
-            .map_err(|error| ConfigLoadError::DeserialzeError(error))?;
+        let raw_config: RawConfig = toml::from_str(contents.as_str())?;
 
         let program_config = ProgramConfig::try_from(&raw_config)?;
 
@@ -44,7 +42,7 @@ pub enum ConfigLoadError {
     #[error("FileReadError[br]{0}")]
     FileReadError(#[source] io::Error),
     #[error("DeserialzeError[br]{0}")]
-    DeserialzeError(#[source] toml::de::Error),
+    DeserialzeError(#[from] toml::de::Error),
     #[error("ParseProgramConfigError[br]{0}")]
     ParseProgramConfigError(#[from] ParseProgramConfigError),
     #[error("ParseTlsConfigError[br]{0}")]

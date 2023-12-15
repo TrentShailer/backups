@@ -25,7 +25,7 @@ impl TlsClient {
         let tls_config = rustls::ClientConfig::builder()
             .with_root_certificates(config.root_ca)
             .with_client_auth_cert(config.certificate, config.key)
-            .map_err(|e| NewClientError::ClientConfigError(e))?;
+            .map_err(NewClientError::ClientConfigError)?;
         let connector = TlsConnector::from(Arc::new(tls_config));
 
         let domain = ServerName::try_from(config.address.clone())
@@ -43,23 +43,22 @@ impl TlsClient {
     pub async fn upload_file(&self, payload: Payload) -> Result<(), UploadError> {
         let stream = TcpStream::connect((self.address.clone(), self.port))
             .await
-            .map_err(|e| UploadError::TcpConnectError(e))?;
+            .map_err(UploadError::TcpConnectError)?;
 
         let mut stream = self
             .connector
             .connect(self.domain.clone(), stream)
             .await
-            .map_err(|e| UploadError::TlsConnectError(e))?;
+            .map_err(UploadError::TlsConnectError)?;
 
         // send payload
-        let payload =
-            toml::to_string(&payload).map_err(|e| UploadError::SerializeFileConfigError(e))?;
+        let payload = toml::to_string(&payload).map_err(UploadError::SerializeFileConfigError)?;
 
         loop {
             stream
                 .write_all(payload.as_bytes())
                 .await
-                .map_err(|e| UploadError::SendFileError(e))?;
+                .map_err(UploadError::SendFileError)?;
 
             let mut response: Vec<u8> = vec![0; 4096];
             let response_size = match stream.read(&mut response).await {

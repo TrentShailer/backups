@@ -4,7 +4,7 @@ use chrono::{DateTime, Local};
 use thiserror::Error;
 
 pub async fn encrypt_file(
-    file: &Vec<u8>,
+    file: &[u8],
     cert: &age::x25519::Recipient,
 ) -> Result<Vec<u8>, EncryptError> {
     let encryptor = match age::Encryptor::with_recipients(vec![Box::new(cert.clone())]) {
@@ -13,14 +13,9 @@ pub async fn encrypt_file(
     };
 
     let mut encrypted = vec![];
-    let mut writer = encryptor
-        .wrap_async_output(&mut encrypted)
-        .await
-        .map_err(|e| EncryptError::AgeWrapError(e))?;
-    writer
-        .write_all(&file)
-        .map_err(|e| EncryptError::WriteError(e))?;
-    writer.finish().map_err(|e| EncryptError::WriteError(e))?;
+    let mut writer = encryptor.wrap_async_output(&mut encrypted).await?;
+    writer.write_all(file)?;
+    writer.finish()?;
 
     Ok(encrypted)
 }
@@ -33,9 +28,9 @@ pub fn get_file_name() -> String {
 #[derive(Debug, Error)]
 pub enum EncryptError {
     #[error("AgeWrapError[br]{0}")]
-    AgeWrapError(#[source] age::EncryptError),
+    AgeWrapError(#[from] age::EncryptError),
     #[error("WriteError[br]{0}")]
-    WriteError(#[source] io::Error),
+    WriteError(#[from] io::Error),
     #[error("NoRecipiantError")]
     NoRecipiantError,
 }

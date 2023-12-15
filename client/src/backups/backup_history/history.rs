@@ -26,10 +26,9 @@ impl History {
     pub fn load() -> Result<Self, LoadHistoryError> {
         let file_path = Path::new(BACKUP_HISTORY_PATH);
         if file_path.exists() {
-            let contents =
-                fs::read_to_string(file_path).map_err(|e| LoadHistoryError::ReadError(e))?;
+            let contents = fs::read_to_string(file_path).map_err(LoadHistoryError::ReadError)?;
 
-            let parsed = toml::from_str(&contents).map_err(|e| LoadHistoryError::ParseError(e))?;
+            let parsed = toml::from_str(&contents).map_err(LoadHistoryError::ParseError)?;
 
             return Ok(parsed);
         }

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::backup_history::BackupHistory;
+use super::BackupHistory;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ServiceBackupHistory {

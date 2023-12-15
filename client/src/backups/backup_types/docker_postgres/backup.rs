@@ -30,7 +30,7 @@ pub async fn make_backup(
 ) -> Result<(), MakeBackupError> {
     let file = get_file(config).await?;
     let file_hash = blake3::hash(&file);
-    let encrypted_file = encrypt_file(&file, &age_cert).await?;
+    let encrypted_file = encrypt_file(&file, age_cert).await?;
 
     let file_name = get_file_name();
 
@@ -65,15 +65,10 @@ pub async fn get_file(config: &DockerPostgresBackupConfig) -> Result<Vec<u8>, Ge
         "-d",
         config.postgres_database.as_str(),
     ];
-    let output = Command::new("docker")
-        .args(&args)
-        .output()
-        .await
-        .map_err(|e| GetFileError::CommandError(e))?;
+    let output = Command::new("docker").args(args).output().await?;
 
     if !output.status.success() {
-        let output_error = String::from_utf8(output.stderr.clone())
-            .map_err(|e| GetFileError::ConvertCommandResultError(e))?;
+        let output_error = String::from_utf8(output.stderr.clone())?;
         return Err(GetFileError::CommandResultError(output_error));
     }
 
@@ -83,11 +78,11 @@ pub async fn get_file(config: &DockerPostgresBackupConfig) -> Result<Vec<u8>, Ge
 #[derive(Debug, Error)]
 pub enum GetFileError {
     #[error("CommandError[br]{0}")]
-    CommandError(#[source] io::Error),
+    CommandError(#[from] io::Error),
     #[error("ComandResultError[br]{0}")]
     CommandResultError(String),
     #[error("ConvertCommandResultError[br]{0}")]
-    ConvertCommandResultError(#[source] FromUtf8Error),
+    ConvertCommandResultError(#[from] FromUtf8Error),
 }
 
 #[derive(Debug, Error)]
