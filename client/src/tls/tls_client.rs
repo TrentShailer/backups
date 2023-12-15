@@ -1,7 +1,6 @@
-use std::{io, str::Utf8Error, string::FromUtf8Error, sync::Arc};
+use std::{io, str::Utf8Error, sync::Arc};
 
 use blake3::Hash;
-use log::info;
 use rustls_pki_types::{InvalidDnsNameError, ServerName};
 use serde::Serialize;
 use thiserror::Error;

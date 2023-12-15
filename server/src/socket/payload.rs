@@ -1,4 +1,4 @@
-use std::{io, str::Utf8Error, string::FromUtf8Error};
+use std::{io, str::Utf8Error};
 
 use blake3::Hash;
 use serde::Deserialize;

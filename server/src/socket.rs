@@ -7,7 +7,7 @@ mod valid_config;
 
 use std::io;
 
-use log::{error, info};
+use log::error;
 use thiserror::Error;
 use tokio::io::{split, AsyncWriteExt};
 

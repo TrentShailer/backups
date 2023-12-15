@@ -3,7 +3,7 @@ mod logger;
 mod socket;
 
 use config::load_config;
-use log::{error, info};
+use log::info;
 use tokio::io::AsyncWriteExt;
 
 use crate::socket::{create_socket, handle_connection};
