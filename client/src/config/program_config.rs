@@ -25,6 +25,6 @@ impl TryFrom<&RawConfig> for ProgramConfig {
 
 #[derive(Debug, Error)]
 pub enum ParseProgramConfigError {
-    #[error("LoadRecipiantError\n{0}")]
+    #[error("LoadRecipiantError[br]{0}")]
     LoadRecipiantError(#[from] LoadRecipiantError),
 }

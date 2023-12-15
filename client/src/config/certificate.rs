@@ -65,17 +65,17 @@ pub fn load_recipiant(
 
 #[derive(Debug, Error)]
 pub enum LoadCertError {
-    #[error("OpenFileError\n{0}")]
+    #[error("OpenFileError[br]{0}")]
     OpenFileError(#[source] io::Error),
-    #[error("ReadCertError\n{0}")]
+    #[error("ReadCertError[br]{0}")]
     ReadCertError(#[source] io::Error),
 }
 
 #[derive(Debug, Error)]
 pub enum LoadKeyError {
-    #[error("OpenFileError\n{0}")]
+    #[error("OpenFileError[br]{0}")]
     OpenFileError(#[source] io::Error),
-    #[error("ParseKeyError\n{0}")]
+    #[error("ParseKeyError[br]{0}")]
     ReadKeyError(#[source] io::Error),
     #[error("KeyNotFoundError")]
     KeyNotFoundError,
@@ -83,18 +83,18 @@ pub enum LoadKeyError {
 
 #[derive(Debug, Error)]
 pub enum LoadRootCertError {
-    #[error("OpenFileError\n{0}")]
+    #[error("OpenFileError[br]{0}")]
     OpenFileError(#[source] io::Error),
-    #[error("ReadCertError\n{0}")]
+    #[error("ReadCertError[br]{0}")]
     ReadCertError(#[source] io::Error),
-    #[error("AddToStoreError\n{0}")]
+    #[error("AddToStoreError[br]{0}")]
     AddToStoreError(#[source] rustls::Error),
 }
 
 #[derive(Debug, Error)]
 pub enum LoadRecipiantError {
-    #[error("ReadFileError\n{0}")]
+    #[error("ReadFileError[br]{0}")]
     ReadFileError(#[source] io::Error),
-    #[error("ParseError\n{0}")]
+    #[error("ParseError[br]{0}")]
     ParseError(String),
 }

@@ -20,7 +20,7 @@ async fn main() -> anyhow::Result<()> {
     let config = match Config::load() {
         Ok(v) => v,
         Err(error) => {
-            app_error!("ConfigLoadError\n{}", error);
+            app_error!("ConfigLoadError[br]{}", error);
             panic!("ConfigLoadError\n{}", error);
         }
     };
@@ -28,7 +28,7 @@ async fn main() -> anyhow::Result<()> {
     let mut history = match load_backup_history(&config.program_config) {
         Ok(v) => v,
         Err(error) => {
-            app_error!("LoadBackupHistoryError\n{}", error);
+            app_error!("LoadBackupHistoryError[br]{}", error);
             panic!("LoadBackupHistoryError\n{}", error);
         }
     };
@@ -38,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
     let tls_client = match TlsClient::new(config.tls_config).await {
         Ok(v) => v,
         Err(error) => {
-            app_error!("NewTlsClientError\n{}", error);
+            app_error!("NewTlsClientError[br]{}", error);
             panic!("NewTlsClientError\n{}", error);
         }
     };
@@ -66,17 +66,17 @@ async fn main() -> anyhow::Result<()> {
     let history_manager = tokio::spawn(async move {
         while let Some(data) = backup_rx.recv().await {
             if let Err(error) = history.update_history(data) {
-                app_error!("UpdateHistoryError\n{}", error);
+                app_error!("UpdateHistoryError[br]{}", error);
                 continue;
             }
             if let Err(error) = history.save_async().await {
-                app_error!("SaveHistoryError\n{}", error);
+                app_error!("SaveHistoryError[br]{}", error);
             }
         }
     });
 
     if let Err(error) = history_manager.await {
-        app_error!("AwaitHistoryManagerError\n{}", error);
+        app_error!("AwaitHistoryManagerError[br]{}", error);
         panic!("AwaitHistoryManagerError\n{}", error);
     };
 

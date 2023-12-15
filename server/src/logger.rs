@@ -11,16 +11,16 @@ macro_rules! backup_error {
 		let error = format!("{}", format_args!($($args),+));
         let parts = error.split("[br]");
 		let error_string = parts
-				.enumerate()
-				.flat_map(|(i, s)| {
-					let parts = s.split("\n");
+			.enumerate()
+			.flat_map(|(i, s)| {
+				let parts = s.split("\n");
 
-					parts.flat_map(move |s| {
-						let output = format!("      {}{}\n", String::from("  ").repeat(i), s);
-						output.as_str().chars().collect::<Vec<_>>()
-					})
+				parts.flat_map(move |s| {
+					let output = format!("      {}{}\n", String::from("  ").repeat(i), s);
+					output.as_str().chars().collect::<Vec<_>>()
 				})
-				.collect::<String>();
+			})
+			.collect::<String>();
 
         log::error!(
             "\n  {}/{}\n    BackupError\n{}",
@@ -37,16 +37,16 @@ macro_rules! app_error {
 		let error = format!("{}", format_args!($($args),+));
         let parts = error.split("[br]");
 		let error_string = parts
-				.enumerate()
-				.flat_map(|(i, s)| {
-					let parts = s.split("\n");
+			.enumerate()
+			.flat_map(|(i, s)| {
+				let parts = s.split("\n");
 
-					parts.flat_map(move |s| {
-						let output = format!("      {}{}\n", String::from("  ").repeat(i), s);
-						output.as_str().chars().collect::<Vec<_>>()
-					})
+				parts.flat_map(move |s| {
+					let output = format!("      {}{}\n", String::from("  ").repeat(i), s);
+					output.as_str().chars().collect::<Vec<_>>()
 				})
-				.collect::<String>();
+			})
+			.collect::<String>();
 
         log::error!(
             "\n  AppError\n{}",

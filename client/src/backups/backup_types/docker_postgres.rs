@@ -53,7 +53,7 @@ impl DockerPostgresBackupConfig {
                         backup_error!(
                             &folder_name,
                             &backup.folder_name,
-                            "ShouldMakeBackupError\n{}",
+                            "ShouldMakeBackupError[br]{}",
                             error
                         );
                         panic!("ShouldMakeBackupError\n{0}", error)
@@ -67,7 +67,7 @@ impl DockerPostgresBackupConfig {
                         backup_error!(
                             &folder_name,
                             &backup.folder_name,
-                            "MakeBackupError\n{}",
+                            "MakeBackupError[br]{}",
                             error
                         );
                     };
@@ -81,7 +81,7 @@ impl DockerPostgresBackupConfig {
                         backup_error!(
                             &folder_name,
                             &backup.folder_name,
-                            "MakeBackupError\n{}",
+                            "MakeBackupError[br]{}",
                             error
                         );
                     };

@@ -4,7 +4,6 @@ use std::{
     time::SystemTime,
 };
 
-use log::info;
 use thiserror::Error;
 use tokio::{
     process::Command,
@@ -83,22 +82,22 @@ pub async fn get_file(config: &DockerPostgresBackupConfig) -> Result<Vec<u8>, Ge
 
 #[derive(Debug, Error)]
 pub enum GetFileError {
-    #[error("CommandError\n{0}")]
+    #[error("CommandError[br]{0}")]
     CommandError(#[source] io::Error),
-    #[error("ComandResultError\n{0}")]
+    #[error("ComandResultError[br]{0}")]
     CommandResultError(String),
-    #[error("ConvertCommandResultError\n{0}")]
+    #[error("ConvertCommandResultError[br]{0}")]
     ConvertCommandResultError(#[source] FromUtf8Error),
 }
 
 #[derive(Debug, Error)]
 pub enum MakeBackupError {
-    #[error("GetFileError\n{0}")]
+    #[error("GetFileError[br]{0}")]
     GetFileError(#[from] GetFileError),
-    #[error("EncryptError\n{0}")]
+    #[error("EncryptError[br]{0}")]
     EncryptError(#[from] EncryptError),
-    #[error("UploadError\n{0}")]
+    #[error("UploadError[br]{0}")]
     UploadError(#[from] tls_client::UploadError),
-    #[error("HistorySendError\n{0}")]
+    #[error("HistorySendError[br]{0}")]
     HistroySendError(#[from] SendError<ChannelData>),
 }

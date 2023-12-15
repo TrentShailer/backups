@@ -1,146 +1,108 @@
-mod backup_config;
-mod handle_file;
+mod create_socket;
+mod decrypt_file;
+mod is_saved_file_valid;
+mod payload;
+mod save_file;
+mod valid_config;
 
-use log::{error, info, warn};
-use rustls::server::{VerifierBuilderError, WebPkiClientVerifier};
-use std::{io, sync::Arc};
+use std::io;
+
+use log::{error, info};
 use thiserror::Error;
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    net::TcpListener,
+use tokio::io::{split, AsyncWriteExt};
+
+use crate::{config::ProgramConfig, socket::payload::get_payload};
+
+use self::{
+    decrypt_file::{decrypt_file, DecryptError},
+    is_saved_file_valid::{is_saved_file_valid, SaveFileValidError},
+    payload::GetPayloadError,
+    save_file::{save_file, SaveFileError},
+    valid_config::valid_config,
 };
-use tokio_rustls::TlsAcceptor;
 
-use crate::{
-    config_types::{Config, TlsConfig},
-    socket::backup_config::recieve_backup_config,
-};
-
-use self::{backup_config::IncomingBackupConfigError, handle_file::HandleFileError};
-
-#[derive(Debug, Error)]
-pub enum CreateSocketError {
-    #[error("Failed to build client verifier: {0}")]
-    BuildClientVerifierError(#[source] VerifierBuilderError),
-    #[error("Failed to build tls config: {0}")]
-    BuildTlsConfigError(#[source] rustls::Error),
-    #[error("Failed to bind tcp socket: {0}")]
-    TcpBindError(#[source] io::Error),
-}
-
-pub async fn create_socket(
-    config: TlsConfig,
-) -> Result<(TcpListener, TlsAcceptor), CreateSocketError> {
-    let client_cert_verifier = WebPkiClientVerifier::builder(Arc::new(config.root_ca))
-        .build()
-        .map_err(|error| CreateSocketError::BuildClientVerifierError(error))?;
-
-    let tls_config = tokio_rustls::rustls::ServerConfig::builder()
-        .with_client_cert_verifier(client_cert_verifier)
-        .with_single_cert(config.certificate_chain, config.private_key)
-        .map_err(|error| CreateSocketError::BuildTlsConfigError(error))?;
-
-    let tls_acceptor = TlsAcceptor::from(Arc::new(tls_config));
-    let listener = TcpListener::bind(&config.socket_address)
-        .await
-        .map_err(|error| CreateSocketError::TcpBindError(error))?;
-
-    info!("Listening on address: {0}", config.socket_address);
-
-    Ok((listener, tls_acceptor))
-}
-
-#[derive(Debug, Error)]
-pub enum ConnectionError {
-    #[error("ReadPayloadError\n{0}")]
-    ReadPayloadError(#[source] io::Error),
-    // ----
-    #[error("Failed to parse backup config")]
-    BackupConfigError(#[source] IncomingBackupConfigError),
-    #[error("Failed to send ready message to client: {0}")]
-    SendReadyError(#[source] io::Error),
-    #[error("Failed to send retry message to client: {0}")]
-    SendRetryError(#[source] io::Error),
-    #[error("Failed to download file: {0}")]
-    DownloadError(#[source] HandleFileError),
-    #[error("Failed to download file, reached maximum retries")]
-    RetryError,
-}
+pub use create_socket::create_socket;
 
 const FILE_RETRIES: u8 = 5;
 
 pub async fn handle_connection(
     stream: &mut tokio_rustls::server::TlsStream<tokio::net::TcpStream>,
-    server_config: Config,
+    program_config: ProgramConfig,
 ) -> Result<(), ConnectionError> {
-    // TODO rewrite everything
-    // try recieve payload
-    // 		try parse payload
-    //		try check with own config
-    //		try decrypt
-    //		try save
-    //		try check hash
-    // respond with success, retry, or an error
-    // first implement without retires
+    let (mut reader, mut writer) = split(stream);
 
-    // read payload
-    let mut buffer = vec![0; 1024];
-    let mut response = String::new();
-    if let Err(error) = stream.read_to_string(&mut response).await {
-        return Err(ConnectionError::ReadPayloadError(error));
-    }
+    let mut attempt = 0;
+    let mut successful = false;
+    while attempt < FILE_RETRIES && !successful {
+        // read payload
+        let payload = get_payload(&mut reader).await?;
 
-    info!("{}", response);
+        // check with own config
+        if !valid_config(&payload.folder, &payload.sub_folder, &program_config) {
+            return Err(ConnectionError::InvalidConfigError(
+                payload.folder,
+                payload.sub_folder,
+            ));
+        }
 
-    let backup_config = recieve_backup_config(&server_config, stream)
-        .await
-        .map_err(|e| ConnectionError::BackupConfigError(e))?;
+        // decrypt
+        let file = decrypt_file(payload.file, &program_config.age_key).await?;
 
-    stream
-        .write_all(b"ready")
-        .await
-        .map_err(|e| ConnectionError::SendReadyError(e))?;
+        // save
+        save_file(
+            file,
+            &payload.file_name,
+            &payload.folder,
+            &payload.sub_folder,
+            &program_config.backup_path,
+        )
+        .await?;
 
-    stream
-        .flush()
-        .await
-        .map_err(|e| ConnectionError::SendReadyError(e))?;
-
-    let mut download_successful = false;
-
-    for current_retry in 0..FILE_RETRIES {
-        match handle_file::handle_file(&server_config, &backup_config, stream).await {
-            Ok(_) => {
-                if current_retry != 0 {
-                    info!("Attempt {} - Successfully downloaded", current_retry);
-                }
-                download_successful = true;
-            }
-            Err(error) => match error {
-                handle_file::HandleFileError::HashError => {
-                    warn!(
-                        "Attempt {} - Failed to download file: {}",
-                        current_retry, error
-                    );
-                    stream
-                        .write_all(b"retry")
-                        .await
-                        .map_err(|e| ConnectionError::SendRetryError(e))?;
-                    stream
-                        .flush()
-                        .await
-                        .map_err(|e| ConnectionError::SendRetryError(e))?;
-                }
-                _ => return Err(ConnectionError::DownloadError(error)),
-            },
+        // check saved file with hash
+        if is_saved_file_valid(
+            &payload.file_hash,
+            &payload.file_name,
+            &payload.folder,
+            &payload.sub_folder,
+            &program_config.backup_path,
+        )
+        .await?
+        {
+            successful = true;
+            break;
         };
+
+        // send retry
+        writer
+            .write_all(b"retry")
+            .await
+            .map_err(|e| ConnectionError::SendRetryError(e))?;
+
+        attempt += 1;
     }
 
-    if !download_successful {
-        return Err(ConnectionError::RetryError);
+    if !successful {
+        // Ran out of tries, return error
+        return Err(ConnectionError::MaxmimumRetriesReached);
     }
-
-    info!("Download successful");
 
     Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum ConnectionError {
+    #[error("GetPayloadError[br]{0}")]
+    GetPayloadError(#[from] GetPayloadError),
+    #[error("InvalidConfigError[br]{0}/{1}")]
+    InvalidConfigError(String, String),
+    #[error("DecryptError[br]{0}")]
+    DecryptError(#[from] DecryptError),
+    #[error("SaveFileError[br]{0}")]
+    SaveFileError(#[from] SaveFileError),
+    #[error("CheckSavedFileError[br]{0}")]
+    CheckSavedFileError(#[from] SaveFileValidError),
+    #[error("MaxmimumRetriesReached")]
+    MaxmimumRetriesReached,
+    #[error("SendRetryError[br]{0}")]
+    SendRetryError(#[source] io::Error),
 }

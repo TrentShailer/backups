@@ -41,12 +41,12 @@ impl Config {
 
 #[derive(Debug, Error)]
 pub enum ConfigLoadError {
-    #[error("FileReadError\n{0}")]
+    #[error("FileReadError[br]{0}")]
     FileReadError(#[source] io::Error),
-    #[error("DeserialzeError\n{0}")]
+    #[error("DeserialzeError[br]{0}")]
     DeserialzeError(#[source] toml::de::Error),
-    #[error("ParseProgramConfigError\n{0}")]
+    #[error("ParseProgramConfigError[br]{0}")]
     ParseProgramConfigError(#[from] ParseProgramConfigError),
-    #[error("ParseTlsConfigError\n{0}")]
+    #[error("ParseTlsConfigError[br]{0}")]
     ParseTlsConfigError(#[from] ParseTlsConfigError),
 }

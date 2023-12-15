@@ -1,4 +1,4 @@
-use std::{io, sync::Arc};
+use std::{io, str::Utf8Error, string::FromUtf8Error, sync::Arc};
 
 use blake3::Hash;
 use log::info;
@@ -61,22 +61,20 @@ impl TlsClient {
                 .write_all(payload.as_bytes())
                 .await
                 .map_err(|e| UploadError::SendFileError(e))?;
-            stream
-                .flush()
-                .await
-                .map_err(|e| UploadError::SendFileError(e))?;
 
-            let mut response = String::new();
-            if let Err(error) = stream.read_to_string(&mut response).await {
-                return Err(UploadError::ReadResponseError(error));
-            }
+            let mut response: Vec<u8> = vec![0; 4096];
+            let response_size = match stream.read(&mut response).await {
+                Ok(v) => v,
+                Err(error) => return Err(UploadError::ReadResponseError(error)),
+            };
+            let response = std::str::from_utf8(&response[0..response_size])?;
 
-            if response == String::from("success") {
+            if response == "success" {
                 return Ok(());
             }
 
-            if response != String::from("retry") {
-                return Err(UploadError::ServerError(response));
+            if response != "retry" {
+                return Err(UploadError::ServerError(String::from(response)));
             }
         }
     }
@@ -93,23 +91,25 @@ pub struct Payload {
 
 #[derive(Debug, Error)]
 pub enum NewClientError {
-    #[error("ClientConfigError\n{0}")]
+    #[error("ClientConfigError[br]{0}")]
     ClientConfigError(#[source] rustls::Error),
-    #[error("DomainError('{0}')\n{1}")]
+    #[error("DomainError('{0}')[br]{1}")]
     DomainError(String, #[source] InvalidDnsNameError),
 }
 #[derive(Debug, Error)]
 pub enum UploadError {
-    #[error("TcpConnectError\n{0}")]
+    #[error("TcpConnectError[br]{0}")]
     TcpConnectError(#[source] io::Error),
-    #[error("TlsConnectError\n{0}")]
+    #[error("TlsConnectError[br]{0}")]
     TlsConnectError(#[source] io::Error),
-    #[error("SerializeFileConfigError\n{0}")]
+    #[error("SerializeFileConfigError[br]{0}")]
     SerializeFileConfigError(#[source] toml::ser::Error),
-    #[error("ReadResponseError\n{0}")]
+    #[error("ReadResponseError[br]{0}")]
     ReadResponseError(#[source] io::Error),
-    #[error("ServerError\n{0}")]
+    #[error("ConvertResponseError[br]{0}")]
+    ConvertResponseError(#[from] Utf8Error),
+    #[error("ServerError[br]{0}")]
     ServerError(String),
-    #[error("SendFileError\n{0}")]
+    #[error("SendFileError[br]{0}")]
     SendFileError(#[source] io::Error),
 }
