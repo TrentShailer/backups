@@ -29,8 +29,7 @@ pub struct BackupConfig {
 
 impl TryFrom<&RawConfig> for ProgramConfig {
     fn try_from(value: &RawConfig) -> Result<Self, Self::Error> {
-        let age_key = load_age_key(&value.age_key_path)
-            .map_err(|e| ParseProgramConfigError::LoadAgeKeyError(e))?;
+        let age_key = load_age_key(&value.age_key_path)?;
 
         Ok(Self {
             backup_path: value.backup_path.clone(),

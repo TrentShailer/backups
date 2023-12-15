@@ -76,7 +76,7 @@ pub async fn handle_connection(
         writer
             .write_all(b"retry")
             .await
-            .map_err(|e| ConnectionError::SendRetryError(e))?;
+            .map_err(ConnectionError::SendRetryError)?;
 
         attempt += 1;
     }

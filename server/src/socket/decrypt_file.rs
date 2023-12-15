@@ -10,7 +10,7 @@ pub async fn decrypt_file(
     key: &age::x25519::Identity,
 ) -> Result<Vec<u8>, DecryptError> {
     let decryptor =
-        match age::Decryptor::new(&file[..]).map_err(|e| DecryptError::CreateDecryptorError(e))? {
+        match age::Decryptor::new(&file[..]).map_err(DecryptError::CreateDecryptorError)? {
             age::Decryptor::Recipients(d) => d,
             _ => unreachable!(),
         };
@@ -18,10 +18,10 @@ pub async fn decrypt_file(
     let mut decrypted = vec![];
     let mut reader = decryptor
         .decrypt_async(iter::once(key as &dyn age::Identity))
-        .map_err(|e| DecryptError::DecryptError(e))?;
+        .map_err(DecryptError::DecryptError)?;
     reader
         .read_to_end(&mut decrypted)
-        .map_err(|e| DecryptError::ReadDecryptorError(e))?;
+        .map_err(DecryptError::ReadDecryptorError)?;
 
     Ok(decrypted)
 }

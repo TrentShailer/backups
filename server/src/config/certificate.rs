@@ -1,7 +1,7 @@
 use std::{
     fs::{self, File},
     io::{self, BufReader},
-    path::PathBuf,
+    path::{Path, PathBuf},
     str::FromStr,
 };
 
@@ -17,7 +17,7 @@ pub enum CertificateError {
 }
 
 pub fn load_certs(
-    certificate_path: &PathBuf,
+    certificate_path: &Path,
 ) -> Result<Vec<CertificateDer<'static>>, CertificateError> {
     match certs(&mut BufReader::new(File::open(certificate_path)?)).collect() {
         Ok(v) => Ok(v),
@@ -33,12 +33,12 @@ pub enum KeyError {
     NotFoundError,
 }
 
-pub fn load_key(key_path: &PathBuf) -> Result<PrivateKeyDer<'static>, KeyError> {
-    let file = File::open(key_path.clone())?;
+pub fn load_key(key_path: &Path) -> Result<PrivateKeyDer<'static>, KeyError> {
+    let file = File::open(key_path)?;
     let mut reader = BufReader::new(file);
 
     match private_key(&mut reader)? {
-        Some(value) => Ok(value.into()),
+        Some(value) => Ok(value),
         None => Err(KeyError::NotFoundError),
     }
 }
@@ -51,7 +51,7 @@ pub enum RootsError {
     RustlsError(#[from] rustls::Error),
 }
 
-pub fn load_roots(roots_path: &PathBuf) -> Result<RootCertStore, RootsError> {
+pub fn load_roots(roots_path: &Path) -> Result<RootCertStore, RootsError> {
     let root_certs: io::Result<Vec<CertificateDer<'static>>> =
         certs(&mut BufReader::new(File::open(roots_path)?)).collect();
 

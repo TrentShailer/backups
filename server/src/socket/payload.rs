@@ -27,7 +27,7 @@ pub async fn get_payload(
     let buffer_size = reader
         .read(&mut contents)
         .await
-        .map_err(|e| GetPayloadError::ReadStreamError(e))?;
+        .map_err(GetPayloadError::ReadStreamError)?;
 
     let contents_string = str::from_utf8(&contents[0..buffer_size])?;
 
