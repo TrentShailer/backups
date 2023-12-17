@@ -321,6 +321,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "backups-server"
+version = "1.0.0"
+dependencies = [
+ "age",
+ "anyhow",
+ "blake3",
+ "chrono",
+ "fern",
+ "log",
+ "notify-rust",
+ "pretty_env_logger",
+ "regex",
+ "rustls",
+ "rustls-pemfile",
+ "rustls-pki-types",
+ "serde",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "toml 0.8.8",
+]
+
+[[package]]
 name = "base64"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1969,29 +1992,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "12022b835073e5b11e90a14f86838ceb1c8fb0325b72416845c487ac0fa95e80"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "server"
-version = "0.1.0"
-dependencies = [
- "age",
- "anyhow",
- "blake3",
- "chrono",
- "fern",
- "log",
- "notify-rust",
- "pretty_env_logger",
- "regex",
- "rustls",
- "rustls-pemfile",
- "rustls-pki-types",
- "serde",
- "thiserror",
- "tokio",
- "tokio-rustls",
- "toml 0.8.8",
 ]
 
 [[package]]

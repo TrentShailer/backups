@@ -144,6 +144,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "backups-client"
+version = "1.0.0"
+dependencies = [
+ "age",
+ "anyhow",
+ "blake3",
+ "chrono",
+ "fern",
+ "log",
+ "regex",
+ "rustls",
+ "rustls-pemfile",
+ "rustls-pki-types",
+ "serde",
+ "serde_with",
+ "thiserror",
+ "tokio",
+ "tokio-rustls",
+ "toml 0.8.8",
+]
+
+[[package]]
 name = "base64"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -277,28 +299,6 @@ dependencies = [
  "crypto-common",
  "inout",
  "zeroize",
-]
-
-[[package]]
-name = "client"
-version = "0.1.0"
-dependencies = [
- "age",
- "anyhow",
- "blake3",
- "chrono",
- "fern",
- "log",
- "regex",
- "rustls",
- "rustls-pemfile",
- "rustls-pki-types",
- "serde",
- "serde_with",
- "thiserror",
- "tokio",
- "tokio-rustls",
- "toml 0.8.8",
 ]
 
 [[package]]
