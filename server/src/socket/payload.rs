@@ -22,7 +22,7 @@ pub struct Payload {
 pub async fn get_payload(
     reader: &mut ReadHalf<&mut TlsStream<TcpStream>>,
 ) -> Result<Payload, GetPayloadError> {
-    let mut contents: Vec<u8> = vec![0; 100000]; // 100Kb
+    let mut contents: Vec<u8> = vec![0; 10000000]; // 10Mb
 
     let buffer_size = reader
         .read(&mut contents)
