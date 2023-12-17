@@ -1,7 +1,9 @@
+mod cleanup;
 mod config;
 mod logger;
 mod socket;
 
+use cleanup::spawn_cleanup_tasks;
 use config::load_config;
 use log::info;
 use tokio::io::AsyncWriteExt;
@@ -28,9 +30,7 @@ async fn main() {
         }
     };
 
-    /*
-       TODO Spawn file cleanup task
-    */
+    spawn_cleanup_tasks(program_config.clone());
 
     loop {
         let (stream, client_address) = match listener.accept().await {

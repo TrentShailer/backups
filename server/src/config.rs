@@ -1,3 +1,4 @@
+mod backup_config;
 mod certificate;
 mod program_config;
 mod raw_config;
@@ -5,7 +6,7 @@ mod tls_config;
 
 use std::{fs, io};
 
-pub use program_config::{BackupConfig, ProgramConfig, ServiceConfig};
+pub use program_config::{ProgramConfig, ServiceConfig};
 pub use raw_config::RawConfig;
 use thiserror::Error;
 pub use tls_config::TlsConfig;

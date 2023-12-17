@@ -4,6 +4,7 @@ use serde::Deserialize;
 use thiserror::Error;
 
 use super::{
+    backup_config::BackupConfig,
     certificate::{load_age_key, AgeKeyError},
     RawConfig,
 };
@@ -19,12 +20,6 @@ pub struct ProgramConfig {
 pub struct ServiceConfig {
     pub folder_name: String,
     pub backup_configs: Vec<BackupConfig>,
-}
-
-#[derive(Deserialize, Clone)]
-pub struct BackupConfig {
-    pub folder_name: String,
-    pub max_files: i32,
 }
 
 impl TryFrom<&RawConfig> for ProgramConfig {
