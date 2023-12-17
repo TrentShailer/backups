@@ -3,10 +3,6 @@ name = "backups-client"
 version = "1.0.0"
 edition = "2021"
 
-[profile.release-with-debug]
-inherits = "release"
-debug = true
-
 [dependencies]
 age = { version = "0.9.2", features = ["async"] }
 anyhow = "1.0.75"
