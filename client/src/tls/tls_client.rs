@@ -60,7 +60,7 @@ impl TlsClient {
                 .await
                 .map_err(UploadError::SendFileError)?;
 
-            let mut response: Vec<u8> = vec![0; 4096];
+            let mut response: Vec<u8> = vec![0; 16384];
             let response_size = match stream.read(&mut response).await {
                 Ok(v) => v,
                 Err(error) => return Err(UploadError::ReadResponseError(error)),

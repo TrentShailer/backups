@@ -55,3 +55,22 @@ pub fn format_message(message: &String) -> String {
         })
         .collect::<String>()
 }
+
+pub fn format_message_short(message: &String) -> String {
+    let parts = message.split("[br]");
+    let mut parts_vec = parts.collect::<Vec<&str>>();
+    parts_vec.pop();
+
+    parts_vec
+        .iter()
+        .enumerate()
+        .flat_map(|(i, s)| {
+            let parts = s.split("\n");
+
+            parts.flat_map(move |s| {
+                let output = format!("  {}{}\n", String::from("  ").repeat(i), s);
+                output.as_str().chars().collect::<Vec<_>>()
+            })
+        })
+        .collect::<String>()
+}

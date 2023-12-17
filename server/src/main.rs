@@ -12,7 +12,7 @@ use notify_rust::Notification;
 use tokio::io::AsyncWriteExt;
 
 use crate::{
-    logger::format_message,
+    logger::{format_message, format_message_short},
     socket::{create_socket, handle_connection},
 };
 
@@ -82,7 +82,7 @@ async fn main() {
                         error!("ShutdownClientError[br]{}", error);
                     };
 
-                    let error_body = format_message(&error.to_string());
+                    let error_body = format_message_short(&error.to_string());
 
                     if let Err(error) = Notification::new()
                         .summary("Backups Server Error")
