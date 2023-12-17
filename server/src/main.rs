@@ -12,7 +12,7 @@ use notify_rust::Notification;
 use tokio::io::AsyncWriteExt;
 
 use crate::{
-    logger::{format_message, format_message_short},
+    logger::format_message_short,
     socket::{create_socket, handle_connection},
 };
 

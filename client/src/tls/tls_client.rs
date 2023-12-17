@@ -40,7 +40,7 @@ impl TlsClient {
         })
     }
 
-    pub async fn upload_file(&self, payload: Payload) -> Result<(), UploadError> {
+    pub async fn upload_file(&self, payload: Payload, file: Vec<u8>) -> Result<(), UploadError> {
         let stream = TcpStream::connect((self.address.clone(), self.port))
             .await
             .map_err(UploadError::TcpConnectError)?;
@@ -57,6 +57,22 @@ impl TlsClient {
         loop {
             stream
                 .write_all(payload.as_bytes())
+                .await
+                .map_err(UploadError::SendFileError)?;
+            let mut response: Vec<u8> = vec![0; 16384];
+            let response_size = match stream.read(&mut response).await {
+                Ok(v) => v,
+                Err(error) => return Err(UploadError::ReadResponseError(error)),
+            };
+            let response = std::str::from_utf8(&response[0..response_size])?;
+
+            if response != "ready" {
+                return Err(UploadError::ServerError(String::from(response)));
+            }
+
+            // send file
+            stream
+                .write_all(&file)
                 .await
                 .map_err(UploadError::SendFileError)?;
 
@@ -84,7 +100,7 @@ pub struct Payload {
     pub sub_folder: String,
     pub file_name: String,
     pub file_hash: Hash,
-    pub file: Vec<u8>,
+    pub file_size: usize,
 }
 
 #[derive(Debug, Error)]

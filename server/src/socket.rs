@@ -2,6 +2,7 @@ mod create_socket;
 mod decrypt_file;
 mod is_saved_file_valid;
 mod payload;
+mod payload_config;
 mod save_file;
 mod valid_config;
 
@@ -17,6 +18,7 @@ use self::{
     decrypt_file::{decrypt_file, DecryptError},
     is_saved_file_valid::{is_saved_file_valid, SaveFileValidError},
     payload::GetPayloadError,
+    payload_config::{get_payload_config, GetPayloadConfigError},
     save_file::{save_file, SaveFileError},
     valid_config::valid_config,
 };
@@ -34,36 +36,49 @@ pub async fn handle_connection(
     let mut attempt = 0;
     let mut successful = false;
     while attempt < FILE_RETRIES && !successful {
-        // read payload
-        let payload = get_payload(&mut reader).await?;
+        // read payload config
+        let payload_config = get_payload_config(&mut reader).await?;
 
         // check with own config
-        if !valid_config(&payload.folder, &payload.sub_folder, &program_config) {
+        if !valid_config(
+            &payload_config.folder,
+            &payload_config.sub_folder,
+            &program_config,
+        ) {
             return Err(ConnectionError::InvalidConfigError(
-                payload.folder,
-                payload.sub_folder,
+                payload_config.folder,
+                payload_config.sub_folder,
             ));
         }
 
+        // send ready
+        writer
+            .write_all(b"ready")
+            .await
+            .map_err(ConnectionError::SendReadyError)?;
+
+        // read payload
+        let file = get_payload(&mut reader, &payload_config).await?;
+
         // decrypt
-        let file = decrypt_file(payload.file, &program_config.age_key).await?;
+        let file = decrypt_file(file, &program_config.age_key).await?;
 
         // save
         save_file(
             file,
-            &payload.file_name,
-            &payload.folder,
-            &payload.sub_folder,
+            &payload_config.file_name,
+            &payload_config.folder,
+            &payload_config.sub_folder,
             &program_config.backup_path,
         )
         .await?;
 
         // check saved file with hash
         if is_saved_file_valid(
-            &payload.file_hash,
-            &payload.file_name,
-            &payload.folder,
-            &payload.sub_folder,
+            &payload_config.file_hash,
+            &payload_config.file_name,
+            &payload_config.folder,
+            &payload_config.sub_folder,
             &program_config.backup_path,
         )
         .await?
@@ -105,4 +120,8 @@ pub enum ConnectionError {
     MaxmimumRetriesReached,
     #[error("SendRetryError[br]{0}")]
     SendRetryError(#[source] io::Error),
+    #[error("SendReadyError[br]{0}")]
+    SendReadyError(#[source] io::Error),
+    #[error("GetPayloadConfigError[br]{0}")]
+    GetPayloadConfigError(#[from] GetPayloadConfigError),
 }

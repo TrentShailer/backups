@@ -39,10 +39,10 @@ pub async fn make_backup(
         file_name,
         folder: config.folder_name.clone(),
         sub_folder: backup_config.folder_name.clone(),
-        file: encrypted_file,
+        file_size: encrypted_file.len(),
     };
 
-    tls_client.upload_file(payload).await?;
+    tls_client.upload_file(payload, encrypted_file).await?;
 
     history_writer
         .send(ChannelData {
