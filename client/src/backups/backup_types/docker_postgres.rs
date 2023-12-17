@@ -107,8 +107,8 @@ impl DockerPostgresBackupConfig {
                         "[[cs]{}/{}[ce]][br]MakeBackupError({})[br]{}",
                         &folder_name, &backup.folder_name, attempt, error
                     );
-                    // sigmoid function that flattens at 20 after 9 attempts
-                    let backoff_multiplier = 20.0 / (1.0 + E.powf(-1.0 * (attempt - 3.0)));
+                    // sigmoid function that flattens at 20 after 15 attempts
+                    let backoff_multiplier = 20.0 / (1.0 + E.powf(-0.7 * (attempt - 4.0)));
                     sleep(Duration::from_secs_f32(60.0 * backoff_multiplier)).await;
                 }
             }
