@@ -137,6 +137,4 @@ pub enum CleanupTaskError {
     GetFileInfoError(#[from] GetFileInfoError),
     #[error("RemoveFileError[br]{0}")]
     RemoveFileError(#[source] io::Error),
-    #[error("TestError")]
-    TestError,
 }
