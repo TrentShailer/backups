@@ -1,10 +1,10 @@
 mod backup;
 
 use crate::{
-    backup_error,
     backups::backup_history::{history::History, ChannelData},
     tls::TlsClient,
 };
+use log::error;
 use serde::Deserialize;
 use tokio::{sync::mpsc::Sender, time::sleep};
 
@@ -50,11 +50,9 @@ impl DockerPostgresBackupConfig {
                 {
                     Ok(v) => v,
                     Err(error) => {
-                        backup_error!(
-                            &folder_name,
-                            &backup.folder_name,
-                            "ShouldMakeBackupError[br]{}",
-                            error
+                        error!(
+                            "[[cs]{}/{}[ce]][br]ShouldMakeBackupError[br]{}",
+                            &folder_name, &backup.folder_name, error
                         );
                         panic!("ShouldMakeBackupError\n{0}", error)
                     }
@@ -64,11 +62,9 @@ impl DockerPostgresBackupConfig {
                     if let Err(error) =
                         make_backup(&config, &backup, &age_cert, &history_writer, &tls_client).await
                     {
-                        backup_error!(
-                            &folder_name,
-                            &backup.folder_name,
-                            "MakeBackupError[br]{}",
-                            error
+                        error!(
+                            "[[cs]{}/{}[ce]][br]MakeBackupError[br]{}",
+                            &folder_name, &backup.folder_name, error
                         );
                     };
                 }
@@ -78,11 +74,9 @@ impl DockerPostgresBackupConfig {
                     if let Err(error) =
                         make_backup(&config, &backup, &age_cert, &history_writer, &tls_client).await
                     {
-                        backup_error!(
-                            &folder_name,
-                            &backup.folder_name,
-                            "MakeBackupError[br]{}",
-                            error
+                        error!(
+                            "[[cs]{}/{}[ce]][br]MakeBackupError[br]{}",
+                            &folder_name, &backup.folder_name, error
                         );
                     };
                 }
