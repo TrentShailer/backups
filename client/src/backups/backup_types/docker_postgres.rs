@@ -1,9 +1,12 @@
 mod backup;
 
+use std::{f32::consts::E, time::Duration};
+
 use crate::{
     backups::backup_history::{history::History, ChannelData},
     tls::TlsClient,
 };
+use age::x25519::Recipient;
 use log::error;
 use serde::Deserialize;
 use tokio::{sync::mpsc::Sender, time::sleep};
@@ -59,28 +62,56 @@ impl DockerPostgresBackupConfig {
                 };
 
                 if should_make_backup {
-                    if let Err(error) =
-                        make_backup(&config, &backup, &age_cert, &history_writer, &tls_client).await
-                    {
-                        error!(
-                            "[[cs]{}/{}[ce]][br]MakeBackupError[br]{}",
-                            &folder_name, &backup.folder_name, error
-                        );
-                    };
+                    Self::try_make_backup(
+                        &config,
+                        &backup,
+                        &folder_name,
+                        &age_cert,
+                        &history_writer,
+                        &tls_client,
+                    )
+                    .await;
                 }
 
                 loop {
                     sleep(backup.backup_interval).await;
-                    if let Err(error) =
-                        make_backup(&config, &backup, &age_cert, &history_writer, &tls_client).await
-                    {
-                        error!(
-                            "[[cs]{}/{}[ce]][br]MakeBackupError[br]{}",
-                            &folder_name, &backup.folder_name, error
-                        );
-                    };
+                    Self::try_make_backup(
+                        &config,
+                        &backup,
+                        &folder_name,
+                        &age_cert,
+                        &history_writer,
+                        &tls_client,
+                    )
+                    .await;
                 }
             });
+        }
+    }
+
+    async fn try_make_backup(
+        config: &DockerPostgresBackupConfig,
+        backup: &BackupConfig,
+        folder_name: &String,
+        age_cert: &Recipient,
+        history_writer: &Sender<ChannelData>,
+        tls_client: &TlsClient,
+    ) {
+        let mut attempt = 0.0;
+        loop {
+            match make_backup(&config, &backup, &age_cert, &history_writer, &tls_client).await {
+                Ok(_) => break,
+                Err(error) => {
+                    attempt += 1.0;
+                    error!(
+                        "[[cs]{}/{}[ce]][br]MakeBackupError({})[br]{}",
+                        &folder_name, &backup.folder_name, attempt, error
+                    );
+                    // sigmoid function that flattens at 20 after 9 attempts
+                    let backoff_multiplier = 20.0 / (1.0 + E.powf(-1.0 * (attempt - 3.0)));
+                    sleep(Duration::from_secs_f32(60.0 * backoff_multiplier)).await;
+                }
+            }
         }
     }
 
