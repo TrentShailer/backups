@@ -1,56 +1,57 @@
-/*
-    This code is completely fucked because I have no idea what I am doing with macros
-    and I don't think they are meant to be used this way.
-    However, this is solution works as long as I give it the intended data.
-    It keeps the code for where it is called clean and it will only be used by me.
-*/
+use fern::colors::{Color, ColoredLevelConfig};
 
-#[macro_export]
-macro_rules! backup_error {
-    ($service:expr, $backup:expr, $($args:expr),+ ) => {
-		let error = format!("{}", format_args!($($args),+));
-        let parts = error.split("[br]");
-		let error_string = parts
-			.enumerate()
-			.flat_map(|(i, s)| {
-				let parts = s.split("\n");
+pub fn init_fern() -> Result<(), fern::InitError> {
+    let colors = ColoredLevelConfig::new()
+        .trace(Color::BrightCyan)
+        .debug(Color::BrightCyan)
+        .info(Color::BrightBlue)
+        .warn(Color::Yellow)
+        .error(Color::Red);
 
-				parts.flat_map(move |s| {
-					let output = format!("      {}{}\n", String::from("  ").repeat(i), s);
-					output.as_str().chars().collect::<Vec<_>>()
-				})
-			})
-			.collect::<String>();
+    fern::Dispatch::new()
+        .format(move |out, message, record| {
+            let message = message.to_string();
 
-        log::error!(
-            "\n  {}/{}\n    BackupError\n{}",
-            $service,
-            $backup,
-            error_string
-        );
-    };
+            let cs = format!("\x1B[{}m", colors.get_color(&record.level()).to_fg_str());
+            let ce = "\x1B[0m";
+
+            let time = chrono::Local::now().format("%F %r").to_string();
+            let level = record.level();
+            let target = record.target();
+
+            let message = format_message(&message);
+            let message = message.replace("[cs]", &cs);
+            let message = message.replace("[ce]", &ce);
+
+            out.finish(format_args!(
+                "[{cs}{time}{ce}] [{cs}{level}{ce}] [{cs}{target}{ce}]\n{message}",
+                cs = cs,
+                ce = ce,
+                time = time,
+                level = level,
+                target = target,
+                message = message
+            ))
+        })
+        .level(log::LevelFilter::Info)
+        .chain(std::io::stdout())
+        .chain(fern::log_file("logs.ansi")?)
+        .apply()?;
+
+    Ok(())
 }
 
-#[macro_export]
-macro_rules! app_error {
-    ($($args:expr),+ ) => {
-		let error = format!("{}", format_args!($($args),+));
-        let parts = error.split("[br]");
-		let error_string = parts
-			.enumerate()
-			.flat_map(|(i, s)| {
-				let parts = s.split("\n");
+pub fn format_message(message: &String) -> String {
+    let parts = message.split("[br]");
+    parts
+        .enumerate()
+        .flat_map(|(i, s)| {
+            let parts = s.split("\n");
 
-				parts.flat_map(move |s| {
-					let output = format!("      {}{}\n", String::from("  ").repeat(i), s);
-					output.as_str().chars().collect::<Vec<_>>()
-				})
-			})
-			.collect::<String>();
-
-        log::error!(
-            "\n  AppError\n{}",
-            error_string
-        );
-    };
+            parts.flat_map(move |s| {
+                let output = format!("  {}{}\n", String::from("  ").repeat(i), s);
+                output.as_str().chars().collect::<Vec<_>>()
+            })
+        })
+        .collect::<String>()
 }

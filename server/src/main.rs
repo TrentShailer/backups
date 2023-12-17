@@ -1,3 +1,5 @@
+//#![windows_subsystem = "windows"]
+
 mod cleanup;
 mod config;
 mod logger;
@@ -5,19 +7,23 @@ mod socket;
 
 use cleanup::spawn_cleanup_tasks;
 use config::load_config;
-use log::info;
+use log::{error, info};
+use notify_rust::Notification;
 use tokio::io::AsyncWriteExt;
 
-use crate::socket::{create_socket, handle_connection};
+use crate::{
+    logger::format_message,
+    socket::{create_socket, handle_connection},
+};
 
 #[tokio::main]
 async fn main() {
-    pretty_env_logger::init_timed();
+    logger::init_fern().unwrap();
 
     let (tls_config, program_config) = match load_config() {
         Ok(config) => config,
         Err(error) => {
-            app_error!("LoadConfigError[br]{}", error);
+            error!("LoadConfigError[br]{}", error);
             panic!("Error when loading config");
         }
     };
@@ -25,7 +31,7 @@ async fn main() {
     let (listener, acceptor) = match create_socket(tls_config).await {
         Ok(val) => val,
         Err(error) => {
-            app_error!("CreateSocketError[br]{}", error);
+            error!("CreateSocketError[br]{}", error);
             panic!("Failed to create socket.");
         }
     };
@@ -36,7 +42,7 @@ async fn main() {
         let (stream, client_address) = match listener.accept().await {
             Ok(value) => value,
             Err(error) => {
-                app_error!("ListenerAcceptError[br]{}", error);
+                error!("ListenerAcceptError[br]{}", error);
                 continue;
             }
         };
@@ -47,7 +53,7 @@ async fn main() {
             let mut stream = match acceptor.accept(stream).await {
                 Ok(v) => v,
                 Err(error) => {
-                    app_error!("TlsAcceptorError[br]{}", error);
+                    error!("TlsAcceptorError[br]{}", error);
                     return;
                 }
             };
@@ -57,26 +63,34 @@ async fn main() {
             match handle_connection(&mut stream, config).await {
                 Ok(_) => {
                     if let Err(error) = stream.write_all(b"success").await {
-                        app_error!("WriteSuccessError[br]{}", error);
+                        error!("WriteSuccessError[br]{}", error);
                     }
 
                     if let Err(error) = stream.shutdown().await {
-                        app_error!("ShutdownClientError[br]{}", error);
+                        error!("ShutdownClientError[br]{}", error);
                     }
                 }
                 Err(error) => {
-                    app_error!("HandleConnectionError[br]{}", error);
+                    error!("HandleConnectionError[br]{}", error);
                     let message = format!("error: {}", error);
 
                     if let Err(error) = stream.write_all(message.as_bytes()).await {
-                        app_error!("WriteErrorError[br]{}", error);
+                        error!("WriteErrorError[br]{}", error);
                     }
 
                     if let Err(error) = stream.shutdown().await {
-                        app_error!("ShutdownClientError[br]{}", error);
+                        error!("ShutdownClientError[br]{}", error);
                     };
 
-                    // TODO raise flag to me
+                    let error_body = format_message(&error.to_string());
+
+                    if let Err(error) = Notification::new()
+                        .summary("Backups Server Error")
+                        .body(error_body.as_str())
+                        .show()
+                    {
+                        error!("ShowNotificationError[br]{}", error);
+                    }
                 }
             }
         });

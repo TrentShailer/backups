@@ -4,11 +4,10 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use log::error;
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::time::sleep;
-
-use crate::backup_error;
 
 #[derive(Deserialize, Clone)]
 pub struct BackupConfig {
@@ -25,13 +24,12 @@ impl BackupConfig {
             let dir = backup_path.join(&parent_folder).join(&config.folder_name);
             loop {
                 if let Err(error) = Self::cleanup_task(&config, &dir).await {
-                    backup_error!(
+                    error!(
+                        "[[cs]{}/{}[ce]][br]CleanupTaskError[br]{}",
                         parent_folder.clone(),
                         config.folder_name.clone(),
-                        "CleanupTaskError[br]{}",
                         error
                     );
-                    continue;
                 }
                 sleep(Duration::from_secs(60 * 60)).await;
             }
@@ -139,4 +137,6 @@ pub enum CleanupTaskError {
     GetFileInfoError(#[from] GetFileInfoError),
     #[error("RemoveFileError[br]{0}")]
     RemoveFileError(#[source] io::Error),
+    #[error("TestError")]
+    TestError,
 }
