@@ -1,4 +1,5 @@
 use std::{
+    ffi::OsString,
     io,
     path::{Path, PathBuf},
     time::{Duration, SystemTime},
@@ -99,6 +100,15 @@ impl BackupConfig {
                 continue;
             }
 
+            let file_name = entry
+                .file_name()
+                .into_string()
+                .map_err(GetFileInfoError::FileNameError)?;
+
+            if !file_name.contains("backup") {
+                continue;
+            }
+
             let created = metadata
                 .created()
                 .map_err(GetFileInfoError::GetCreatedError)?;
@@ -127,6 +137,8 @@ pub enum GetFileInfoError {
     ReadMetadataError(#[source] io::Error),
     #[error("GetCreatedError[br]{0}")]
     GetCreatedError(#[source] io::Error),
+    #[error("FileNameError")]
+    FileNameError(OsString),
 }
 
 #[derive(Debug, Error)]

@@ -22,7 +22,7 @@ pub async fn encrypt_file(
 
 pub fn get_file_name() -> String {
     let datetime: DateTime<Local> = Local::now();
-    datetime.format("%Y-%m-%d_%H-%M-%S").to_string()
+    datetime.format("%Y-%m-%d_%H-%M-%S.backup").to_string()
 }
 
 #[derive(Debug, Error)]
