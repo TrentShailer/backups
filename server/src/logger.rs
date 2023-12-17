@@ -35,7 +35,7 @@ pub fn init_fern() -> Result<(), fern::InitError> {
         })
         .level(log::LevelFilter::Info)
         .chain(std::io::stdout())
-        .chain(fern::log_file("logs.ansi")?)
+        .chain(fern::DateBased::new("logs/", "%F.log.ansi"))
         .apply()?;
 
     Ok(())

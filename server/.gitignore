@@ -3,4 +3,4 @@
 /ssl
 /backups
 config.toml
-logs.ansi
+/logs
