@@ -7,7 +7,7 @@ mod valid_config;
 
 use std::io;
 
-use log::error;
+use log::{error, warn};
 use thiserror::Error;
 use tokio::io::{split, AsyncWriteExt};
 
@@ -81,6 +81,11 @@ pub async fn handle_connection(
             successful = true;
             break;
         };
+
+        warn!(
+            "[[cs]{}/{}[ce]][br]HashMismatch({})",
+            payload_config.folder, payload_config.sub_folder, attempt
+        );
 
         // send retry
         writer
