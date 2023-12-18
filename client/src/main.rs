@@ -11,7 +11,7 @@ use crate::{
     tls::TlsClient,
 };
 use config::Config;
-use log::error;
+use log::{error, info};
 use logger::init_fern;
 use tokio::sync::mpsc::channel;
 
@@ -44,6 +44,8 @@ async fn main() -> anyhow::Result<()> {
             panic!("NewTlsClientError\n{}", error);
         }
     };
+
+    info!("Client Started");
 
     for service in config.program_config.service_config.iter() {
         match service {
