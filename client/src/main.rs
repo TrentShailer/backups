@@ -52,13 +52,12 @@ async fn main() -> anyhow::Result<()> {
             } => {
                 let backup_config = backup_config.clone();
                 let history = history.clone();
-                let recipiant = config.program_config.recipiant.clone();
                 let backup_tx = backup_tx.clone();
                 let tls_client = tls_client.clone();
 
                 tokio::spawn(async move {
                     backup_config
-                        .spawn_tasks(recipiant, history, backup_tx, tls_client)
+                        .spawn_tasks(history, backup_tx, tls_client)
                         .await;
                 });
             }

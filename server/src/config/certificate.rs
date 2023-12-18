@@ -1,8 +1,7 @@
 use std::{
-    fs::{self, File},
+    fs::File,
     io::{self, BufReader},
-    path::{Path, PathBuf},
-    str::FromStr,
+    path::Path,
 };
 
 use rustls_pemfile::{certs, private_key};
@@ -64,20 +63,4 @@ pub fn load_roots(roots_path: &Path) -> Result<RootCertStore, RootsError> {
     }
 
     Ok(root_cert_store)
-}
-
-#[derive(Debug, Error)]
-pub enum AgeKeyError {
-    #[error(transparent)]
-    IOError(#[from] io::Error),
-    #[error("{0}")]
-    ParseError(String),
-}
-
-pub fn load_age_key(age_key_path: &PathBuf) -> Result<age::x25519::Identity, AgeKeyError> {
-    let contents = fs::read_to_string(age_key_path)?;
-    match age::x25519::Identity::from_str(&contents) {
-        Ok(v) => Ok(v),
-        Err(error) => Err(AgeKeyError::ParseError(String::from(error))),
-    }
 }

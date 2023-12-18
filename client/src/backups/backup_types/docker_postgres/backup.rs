@@ -11,11 +11,7 @@ use tokio::{
 };
 
 use crate::{
-    backups::{
-        backup_history::ChannelData,
-        backup_types::BackupConfig,
-        file_utils::{encrypt_file, get_file_name, EncryptError},
-    },
+    backups::{backup_history::ChannelData, backup_types::BackupConfig, file_utils::get_file_name},
     tls::tls_client::{self, Payload, TlsClient},
 };
 
@@ -24,13 +20,11 @@ use super::DockerPostgresBackupConfig;
 pub async fn make_backup(
     config: &DockerPostgresBackupConfig,
     backup_config: &BackupConfig,
-    age_cert: &age::x25519::Recipient,
     history_writer: &Sender<ChannelData>,
     tls_client: &TlsClient,
 ) -> Result<(), MakeBackupError> {
     let file = get_file(config).await?;
     let file_hash = blake3::hash(&file);
-    let encrypted_file = encrypt_file(&file, age_cert).await?;
 
     let file_name = get_file_name();
 
@@ -39,10 +33,10 @@ pub async fn make_backup(
         file_name,
         folder: config.folder_name.clone(),
         sub_folder: backup_config.folder_name.clone(),
-        file_size: encrypted_file.len(),
+        file_size: file.len(),
     };
 
-    tls_client.upload_file(payload, encrypted_file).await?;
+    tls_client.upload_file(payload, file).await?;
 
     history_writer
         .send(ChannelData {
@@ -89,8 +83,6 @@ pub enum GetFileError {
 pub enum MakeBackupError {
     #[error("GetFileError[br]{0}")]
     GetFileError(#[from] GetFileError),
-    #[error("EncryptError[br]{0}")]
-    EncryptError(#[from] EncryptError),
     #[error("UploadError[br]{0}")]
     UploadError(#[from] tls_client::UploadError),
     #[error("HistorySendError[br]{0}")]

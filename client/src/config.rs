@@ -11,7 +11,7 @@ use thiserror::Error;
 
 use crate::config::raw_config::RawConfig;
 
-use self::{program_config::ParseProgramConfigError, tls_config::ParseTlsConfigError};
+use self::tls_config::ParseTlsConfigError;
 
 const CONFIG_PATH: &str = "./config.toml";
 
@@ -26,7 +26,7 @@ impl Config {
 
         let raw_config: RawConfig = toml::from_str(contents.as_str())?;
 
-        let program_config = ProgramConfig::try_from(&raw_config)?;
+        let program_config = ProgramConfig::from(&raw_config);
 
         let tls_config = TlsConfig::try_from(&raw_config)?;
 
@@ -43,8 +43,6 @@ pub enum ConfigLoadError {
     FileReadError(#[source] io::Error),
     #[error("DeserialzeError[br]{0}")]
     DeserialzeError(#[from] toml::de::Error),
-    #[error("ParseProgramConfigError[br]{0}")]
-    ParseProgramConfigError(#[from] ParseProgramConfigError),
     #[error("ParseTlsConfigError[br]{0}")]
     ParseTlsConfigError(#[from] ParseTlsConfigError),
 }

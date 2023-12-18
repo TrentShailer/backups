@@ -1,5 +1,4 @@
 mod create_socket;
-mod decrypt_file;
 mod is_saved_file_valid;
 mod payload;
 mod payload_config;
@@ -15,7 +14,6 @@ use tokio::io::{split, AsyncWriteExt};
 use crate::{config::ProgramConfig, socket::payload::get_payload};
 
 use self::{
-    decrypt_file::{decrypt_file, DecryptError},
     is_saved_file_valid::{is_saved_file_valid, SaveFileValidError},
     payload::GetPayloadError,
     payload_config::{get_payload_config, GetPayloadConfigError},
@@ -59,9 +57,6 @@ pub async fn handle_connection(
 
         // read payload
         let file = get_payload(&mut reader, &payload_config).await?;
-
-        // decrypt
-        let file = decrypt_file(file, &program_config.age_key).await?;
 
         // save
         save_file(
@@ -110,8 +105,6 @@ pub enum ConnectionError {
     GetPayloadError(#[from] GetPayloadError),
     #[error("InvalidConfigError[br]{0}/{1}")]
     InvalidConfigError(String, String),
-    #[error("DecryptError[br]{0}")]
-    DecryptError(#[from] DecryptError),
     #[error("SaveFileError[br]{0}")]
     SaveFileError(#[from] SaveFileError),
     #[error("CheckSavedFileError[br]{0}")]

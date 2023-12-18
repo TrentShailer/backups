@@ -1,8 +1,7 @@
 use std::{
-    fs::{self, File},
+    fs::File,
     io::{self, BufReader},
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
 use rustls::RootCertStore;
@@ -51,17 +50,6 @@ pub fn load_root_cert(root_path: &PathBuf) -> Result<RootCertStore, LoadRootCert
     Ok(root_cert_store)
 }
 
-pub fn load_recipiant(
-    recipiant_path: &PathBuf,
-) -> Result<age::x25519::Recipient, LoadRecipiantError> {
-    let contents = fs::read_to_string(recipiant_path).map_err(LoadRecipiantError::ReadFileError)?;
-
-    match age::x25519::Recipient::from_str(&contents) {
-        Ok(v) => Ok(v),
-        Err(error) => Err(LoadRecipiantError::ParseError(String::from(error))),
-    }
-}
-
 #[derive(Debug, Error)]
 pub enum LoadCertError {
     #[error("OpenFileError[br]{0}")]
@@ -88,12 +76,4 @@ pub enum LoadRootCertError {
     ReadCertError(#[source] io::Error),
     #[error("AddToStoreError[br]{0}")]
     AddToStoreError(#[source] rustls::Error),
-}
-
-#[derive(Debug, Error)]
-pub enum LoadRecipiantError {
-    #[error("ReadFileError[br]{0}")]
-    ReadFileError(#[source] io::Error),
-    #[error("ParseError[br]{0}")]
-    ParseError(String),
 }

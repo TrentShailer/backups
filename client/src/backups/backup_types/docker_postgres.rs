@@ -6,7 +6,6 @@ use crate::{
     backups::backup_history::{history::History, ChannelData},
     tls::TlsClient,
 };
-use age::x25519::Recipient;
 use log::error;
 use serde::Deserialize;
 use tokio::{sync::mpsc::Sender, time::sleep};
@@ -27,7 +26,6 @@ pub struct DockerPostgresBackupConfig {
 impl DockerPostgresBackupConfig {
     pub async fn spawn_tasks(
         &self,
-        age_cert: age::x25519::Recipient,
         history: History,
         history_writer: Sender<ChannelData>,
         tls_client: TlsClient,
@@ -35,7 +33,6 @@ impl DockerPostgresBackupConfig {
         // for each backup, spawn a task
         for backup in self.backup_configs.iter() {
             let backup = backup.clone(); // Clone values so they can be moved into the task
-            let age_cert = age_cert.clone();
             let history_writer = history_writer.clone();
             let history = history.clone();
             let config = self.clone();
@@ -66,7 +63,6 @@ impl DockerPostgresBackupConfig {
                         &config,
                         &backup,
                         &folder_name,
-                        &age_cert,
                         &history_writer,
                         &tls_client,
                     )
@@ -79,7 +75,6 @@ impl DockerPostgresBackupConfig {
                         &config,
                         &backup,
                         &folder_name,
-                        &age_cert,
                         &history_writer,
                         &tls_client,
                     )
@@ -93,13 +88,12 @@ impl DockerPostgresBackupConfig {
         config: &DockerPostgresBackupConfig,
         backup: &BackupConfig,
         folder_name: &String,
-        age_cert: &Recipient,
         history_writer: &Sender<ChannelData>,
         tls_client: &TlsClient,
     ) {
         let mut attempt = 0.0;
         loop {
-            match make_backup(&config, &backup, &age_cert, &history_writer, &tls_client).await {
+            match make_backup(&config, &backup, &history_writer, &tls_client).await {
                 Ok(_) => break,
                 Err(error) => {
                     attempt += 1.0;
