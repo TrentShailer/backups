@@ -58,10 +58,11 @@ async fn main() {
                 }
             };
 
-            info!("Client connected: {}", client_address);
+            info!("({}) Client connected", client_address);
 
-            match handle_connection(&mut stream, config).await {
+            match handle_connection(&mut stream, config, &client_address).await {
                 Ok(_) => {
+                    info!("({}) Backup successful", client_address);
                     if let Err(error) = stream.write_all(b"success").await {
                         error!("WriteSuccessError[br]{}", error);
                     }

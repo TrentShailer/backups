@@ -5,9 +5,9 @@ mod payload_config;
 mod save_file;
 mod valid_config;
 
-use std::io;
+use std::{io, net::SocketAddr};
 
-use log::{error, warn};
+use log::{error, info, warn};
 use thiserror::Error;
 use tokio::io::{split, AsyncWriteExt};
 
@@ -28,6 +28,7 @@ const FILE_RETRIES: u8 = 5;
 pub async fn handle_connection(
     stream: &mut tokio_rustls::server::TlsStream<tokio::net::TcpStream>,
     program_config: ProgramConfig,
+    client_address: &SocketAddr,
 ) -> Result<(), ConnectionError> {
     let (mut reader, mut writer) = split(stream);
 
@@ -36,6 +37,11 @@ pub async fn handle_connection(
     while attempt < FILE_RETRIES && !successful {
         // read payload config
         let payload_config = get_payload_config(&mut reader).await?;
+
+        info!(
+            "({}) Got config [{}/{}]",
+            client_address, payload_config.folder, payload_config.sub_folder
+        );
 
         // check with own config
         if !valid_config(
