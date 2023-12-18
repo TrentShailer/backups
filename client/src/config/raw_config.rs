@@ -11,6 +11,5 @@ pub struct RawConfig {
     pub root_ca_path: PathBuf,
     pub certificate_path: PathBuf,
     pub key_path: PathBuf,
-    pub recipiant_path: PathBuf,
     pub service_config: Vec<BackupTypes>,
 }
