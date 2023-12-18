@@ -12,7 +12,7 @@ pub async fn get_payload(
     reader: &mut ReadHalf<&mut TlsStream<TcpStream>>,
     payload_config: &PayloadConfig,
 ) -> Result<Vec<u8>, GetPayloadError> {
-    let mut contents: Vec<u8> = vec![0; payload_config.file_size + 1024];
+    let mut contents: Vec<u8> = vec![0; payload_config.file_size];
 
     reader
         .read(&mut contents)
