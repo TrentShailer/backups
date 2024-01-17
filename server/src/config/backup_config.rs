@@ -6,6 +6,7 @@ use std::{
 };
 
 use log::error;
+use owo_colors::OwoColorize;
 use serde::Deserialize;
 use thiserror::Error;
 use tokio::time::sleep;
@@ -26,9 +27,10 @@ impl BackupConfig {
             loop {
                 if let Err(error) = Self::cleanup_task(&config, &dir).await {
                     error!(
-                        "[[cs]{}/{}[ce]][br]CleanupTaskError[br]{}",
-                        parent_folder.clone(),
-                        config.folder_name.clone(),
+                        "[{}{}{}][br]CleanupTaskError[br]{}",
+                        parent_folder.clone().red(),
+                        "/".red(),
+                        config.folder_name.clone().red(),
                         error
                     );
                 }

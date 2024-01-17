@@ -1,35 +1,29 @@
-use fern::colors::{Color, ColoredLevelConfig};
+use owo_colors::{OwoColorize, Style};
 
 pub fn init_fern() -> Result<(), fern::InitError> {
-    let colors = ColoredLevelConfig::new()
-        .trace(Color::BrightCyan)
-        .debug(Color::BrightCyan)
-        .info(Color::BrightBlue)
-        .warn(Color::Yellow)
-        .error(Color::Red);
-
     fern::Dispatch::new()
         .format(move |out, message, record| {
             let message = message.to_string();
-
-            let cs = format!("\x1B[{}m", colors.get_color(&record.level()).to_fg_str());
-            let ce = "\x1B[0m";
 
             let time = chrono::Local::now().format("%F %r").to_string();
             let level = record.level();
             let target = record.target();
 
+            let style = match level {
+                log::Level::Error => Style::new().red(),
+                log::Level::Warn => Style::new().yellow(),
+                log::Level::Info => Style::new().blue(),
+                log::Level::Debug => Style::new().cyan(),
+                log::Level::Trace => Style::new().cyan(),
+            };
+
             let message = format_message(&message);
-            let message = message.replace("[cs]", &cs);
-            let message = message.replace("[ce]", &ce);
 
             out.finish(format_args!(
-                "[{cs}{time}{ce}] [{cs}{level}{ce}] [{cs}{target}{ce}]\n{message}",
-                cs = cs,
-                ce = ce,
-                time = time,
-                level = level,
-                target = target,
+                "[{time}] [{level}] [{target}]\n{message}",
+                time = time.style(style),
+                level = level.style(style),
+                target = target.style(style),
                 message = message
             ))
         })

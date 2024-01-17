@@ -8,6 +8,7 @@ mod valid_config;
 use std::{io, net::SocketAddr};
 
 use log::{error, info, warn};
+use owo_colors::OwoColorize;
 use thiserror::Error;
 use tokio::io::{split, AsyncWriteExt};
 
@@ -89,8 +90,11 @@ pub async fn handle_connection(
         };
 
         warn!(
-            "[[cs]{}/{}[ce]][br]HashMismatch({})",
-            payload_config.folder, payload_config.sub_folder, attempt
+            "[{}{}{}][br]HashMismatch({})",
+            payload_config.folder.yellow(),
+            "/".yellow(),
+            payload_config.sub_folder.yellow(),
+            attempt
         );
 
         // send retry

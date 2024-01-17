@@ -18,5 +18,7 @@ serde = { version = "1.0.193", features = ["derive"] }
 toml = "0.8.8"
 blake3 = { version = "1.5.0", features = ["serde"] }
 notify-rust = "4.10.0"
-fern = { version = "0.6.2", features = ["colored", "date-based"] }
+fern = { version = "0.6.2", features = ["date-based"] }
 chrono = "0.4.31"
+mimalloc = "0.1.39"
+owo-colors = "4.0.0"
