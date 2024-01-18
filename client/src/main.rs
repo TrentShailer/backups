@@ -1,87 +1,113 @@
-mod backups;
-mod config;
+mod backup_client;
+mod backup_config;
+mod load_certificates;
 mod logger;
-mod tls;
+mod scheduler_config;
+
+use std::{fs, sync::Arc, time::Duration};
 
 use crate::{
-    backups::{
-        backup_history::{self, load_backup_history},
-        backup_types::BackupTypes,
-    },
-    tls::TlsClient,
+    backup_config::BackupConfig, load_certificates::load_certificates,
+    scheduler_config::SchedulerConfig,
 };
-use config::Config;
-use log::{error, info};
-use logger::init_fern;
-use tokio::sync::mpsc::channel;
+use backup_client::make_backup;
+use futures_rustls::{rustls::ClientConfig, TlsConnector};
+use log::error;
+use owo_colors::OwoColorize;
+use smol::{future, Executor, Task, Timer};
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    init_fern().unwrap();
+const CONFIG_PATH: &str = "./config.toml";
 
-    let config = match Config::load() {
+fn main() {
+    logger::init_fern().unwrap();
+
+    let config_contents = match fs::read_to_string(CONFIG_PATH) {
         Ok(v) => v,
-        Err(error) => {
-            error!("ConfigLoadError[br]{}", error);
-            panic!("ConfigLoadError\n{}", error);
+        Err(e) => {
+            error!("Failed to read config: {}", e);
+            return;
         }
     };
 
-    let mut history = match load_backup_history(&config.program_config) {
+    let config: SchedulerConfig = match toml::from_str(&config_contents) {
         Ok(v) => v,
-        Err(error) => {
-            error!("LoadBackupHistoryError[br]{}", error);
-            panic!("LoadBackupHistoryError\n{}", error);
+        Err(e) => {
+            error!("Failed to parse config: {}", e);
+            return;
         }
     };
 
-    let (backup_tx, mut backup_rx) = channel::<backup_history::ChannelData>(10);
-
-    let tls_client = match TlsClient::new(config.tls_config).await {
+    let (certs, key, root_ca, domain) = match load_certificates(&config) {
         Ok(v) => v,
-        Err(error) => {
-            error!("NewTlsClientError[br]{}", error);
-            panic!("NewTlsClientError\n{}", error);
+        Err(e) => {
+            error!("Failed to load certificates: {}", e);
+            return;
         }
     };
 
-    info!("Client Started");
+    let ex = Executor::new();
+    let mut tasks: Vec<Task<()>> = Vec::new();
 
-    for service in config.program_config.service_config.iter() {
-        match service {
-            BackupTypes::DockerPostgres {
-                config: backup_config,
-            } => {
-                let backup_config = backup_config.clone();
-                let history = history.clone();
-                let backup_tx = backup_tx.clone();
-                let tls_client = tls_client.clone();
-
-                tokio::spawn(async move {
-                    backup_config
-                        .spawn_tasks(history, backup_tx, tls_client)
-                        .await;
-                });
-            }
-        };
+    for service in config.services.as_slice() {
+        for backup in service.backups.as_slice() {
+            let task = match create_backup_task(
+                backup, &config, service, &certs, &key, &root_ca, &domain, &ex,
+            ) {
+                Ok(v) => v,
+                Err(e) => {
+                    error!(
+                        "[{}] Failed to create backup task:\n{}",
+                        format!("{}/{}", service.service_name, backup.backup_name).red(),
+                        e
+                    );
+                    return;
+                }
+            };
+            tasks.push(task);
+        }
     }
 
-    let history_manager = tokio::spawn(async move {
-        while let Some(data) = backup_rx.recv().await {
-            if let Err(error) = history.update_history(data) {
-                error!("UpdateHistoryError[br]{}", error);
-                continue;
-            }
-            if let Err(error) = history.save_async().await {
-                error!("SaveHistoryError[br]{}", error);
-            }
+    future::block_on(ex.run(future::pending::<()>()));
+    unreachable!();
+}
+
+fn create_backup_task(
+    backup: &scheduler_config::SchedulerBackup,
+    config: &SchedulerConfig,
+    service: &scheduler_config::SchedulerService,
+    certs: &Vec<rustls_pki_types::CertificateDer<'static>>,
+    key: &rustls_pki_types::PrivateKeyDer<'static>,
+    root_ca: &futures_rustls::rustls::RootCertStore,
+    domain: &rustls_pki_types::ServerName<'static>,
+    ex: &Executor<'static>,
+) -> Result<Task<()>, futures_rustls::rustls::Error> {
+    let sleep_duration = Duration::from_secs(backup.interval);
+    let client_config = BackupConfig::from_scheduler(config, &service, &backup);
+    let certs = certs.clone();
+    let key = key.clone_key();
+    let root_ca = root_ca.clone();
+    let domain = domain.clone();
+
+    let tls_config = ClientConfig::builder()
+        .with_root_certificates(root_ca)
+        .with_client_auth_cert(certs, key)?;
+
+    Ok(ex.spawn(async move {
+        let connector = TlsConnector::from(Arc::new(tls_config));
+
+        loop {
+            if let Err(e) = make_backup(&client_config, &connector, domain.clone()).await {
+                error!(
+                    "[{}]\nFailed to make backup: {}",
+                    format!(
+                        "{}::{}",
+                        client_config.service_name, client_config.backup_name
+                    )
+                    .red(),
+                    e
+                );
+            };
+            Timer::after(sleep_duration).await;
         }
-    });
-
-    if let Err(error) = history_manager.await {
-        error!("AwaitHistoryManagerError[br]{}", error);
-        panic!("AwaitHistoryManagerError\n{}", error);
-    };
-
-    Ok(())
+    }))
 }

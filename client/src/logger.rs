@@ -1,57 +1,34 @@
-use fern::colors::{Color, ColoredLevelConfig};
+use std::fs;
+
+use owo_colors::{OwoColorize, Style};
 
 pub fn init_fern() -> Result<(), fern::InitError> {
-    let colors = ColoredLevelConfig::new()
-        .trace(Color::BrightCyan)
-        .debug(Color::BrightCyan)
-        .info(Color::BrightBlue)
-        .warn(Color::Yellow)
-        .error(Color::Red);
-
+    fs::create_dir_all("./logs").unwrap();
     fern::Dispatch::new()
         .format(move |out, message, record| {
             let message = message.to_string();
-
-            let cs = format!("\x1B[{}m", colors.get_color(&record.level()).to_fg_str());
-            let ce = "\x1B[0m";
-
-            let time = chrono::Local::now().format("%F %r").to_string();
+            let time = chrono::Local::now().format("%F %r %:z").to_string();
             let level = record.level();
             let target = record.target();
 
-            let message = format_message(&message);
-            let message = message.replace("[cs]", &cs);
-            let message = message.replace("[ce]", &ce);
-
+            let style = match level {
+                log::Level::Error => Style::new().red(),
+                log::Level::Warn => Style::new().yellow(),
+                log::Level::Info => Style::new().blue(),
+                log::Level::Debug => Style::new().cyan(),
+                log::Level::Trace => Style::new().cyan(),
+            };
             out.finish(format_args!(
-                "[{cs}{time}{ce}] [{cs}{level}{ce}] [{cs}{target}{ce}]\n{message}",
-                cs = cs,
-                ce = ce,
-                time = time,
-                level = level,
-                target = target,
-                message = message
+                "[{time}] [{level}] [{target}]\n{message}\n",
+                time = time.style(style),
+                level = level.style(style),
+                target = target.style(style),
+                message = message,
             ))
         })
         .level(log::LevelFilter::Info)
         .chain(std::io::stdout())
         .chain(fern::DateBased::new("logs/", "%F.log.ansi"))
         .apply()?;
-
     Ok(())
-}
-
-pub fn format_message(message: &String) -> String {
-    let parts = message.split("[br]");
-    parts
-        .enumerate()
-        .flat_map(|(i, s)| {
-            let parts = s.split("\n");
-
-            parts.flat_map(move |s| {
-                let output = format!("  {}{}\n", String::from("  ").repeat(i), s);
-                output.as_str().chars().collect::<Vec<_>>()
-            })
-        })
-        .collect::<String>()
 }
