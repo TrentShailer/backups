@@ -51,7 +51,7 @@ fn main() {
     for service in config.services.as_slice() {
         for backup in service.backups.as_slice() {
             let task = match create_backup_task(
-                backup, &config, service, &certs, &key, &root_ca, &domain, &ex,
+                &config, service, backup, &certs, &key, &root_ca, &domain, &ex,
             ) {
                 Ok(v) => v,
                 Err(e) => {
@@ -72,9 +72,9 @@ fn main() {
 }
 
 fn create_backup_task(
-    backup: &scheduler_config::SchedulerBackup,
     config: &SchedulerConfig,
     service: &scheduler_config::SchedulerService,
+    backup: &scheduler_config::SchedulerBackup,
     certs: &Vec<rustls_pki_types::CertificateDer<'static>>,
     key: &rustls_pki_types::PrivateKeyDer<'static>,
     root_ca: &futures_rustls::rustls::RootCertStore,
