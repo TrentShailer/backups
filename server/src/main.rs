@@ -1,99 +1,130 @@
-#![windows_subsystem = "windows"]
+use std::{fs, sync::Arc};
 
-mod cleanup;
-mod config;
-mod logger;
-mod socket;
-
-use cleanup::spawn_cleanup_tasks;
-use config::load_config;
-use log::{error, info};
-use notify_rust::Notification;
-use tokio::io::AsyncWriteExt;
-
-use crate::{
-    logger::format_message_short,
-    socket::{create_socket, handle_connection},
+use futures_rustls::{
+    rustls::{self, server::WebPkiClientVerifier},
+    TlsAcceptor,
 };
+use load_certificates::load_certificates;
+use log::{error, info};
+use owo_colors::OwoColorize;
+use smol::{io::AsyncWriteExt, net::TcpListener};
 
-#[tokio::main]
-async fn main() {
+use crate::{handler::handler, server_config::ServerConfig};
+
+mod handler;
+mod load_certificates;
+mod logger;
+mod payload;
+mod server_config;
+
+const CONFIG_PATH: &str = "./config.toml";
+
+pub fn main() {
     logger::init_fern().unwrap();
 
-    let (tls_config, program_config) = match load_config() {
-        Ok(config) => config,
-        Err(error) => {
-            error!("LoadConfigError[br]{}", error);
-            panic!("Error when loading config");
+    let config_contents = match fs::read_to_string(CONFIG_PATH) {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Failed to read config: {}", e);
+            return;
         }
     };
 
-    let (listener, acceptor) = match create_socket(tls_config).await {
-        Ok(val) => val,
-        Err(error) => {
-            error!("CreateSocketError[br]{}", error);
-            panic!("Failed to create socket.");
+    let config: ServerConfig = match toml::from_str(&config_contents) {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Failed to parse config: {}", e);
+            return;
         }
     };
 
-    spawn_cleanup_tasks(program_config.clone());
+    let certificates = match load_certificates(&config) {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Failed to load certificates: {}", e);
+            return;
+        }
+    };
 
-    loop {
-        let (stream, client_address) = match listener.accept().await {
-            Ok(value) => value,
-            Err(error) => {
-                error!("ListenerAcceptError[br]{}", error);
-                continue;
+    let client_cert_verifier =
+        match WebPkiClientVerifier::builder(Arc::new(certificates.root_cert_store)).build() {
+            Ok(v) => v,
+            Err(e) => {
+                error!("Failed to create client verifier:\n{}", e);
+                return;
             }
         };
-        let acceptor = acceptor.clone();
-        let config = program_config.clone();
 
-        tokio::spawn(async move {
-            let mut stream = match acceptor.accept(stream).await {
+    let tls_config = match rustls::ServerConfig::builder()
+        .with_client_cert_verifier(client_cert_verifier)
+        .with_single_cert(certificates.certificates, certificates.key)
+    {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Failed to create tls config:\n{}", e);
+            return;
+        }
+    };
+
+    smol::block_on(async {
+        let tls = TlsAcceptor::from(Arc::new(tls_config));
+        let listener = match TcpListener::bind(&config.socket_address).await {
+            Ok(v) => v,
+            Err(e) => {
+                error!("Failed bind tcp listener:\n{}", e);
+                return;
+            }
+        };
+
+        info!("Listening on address: {}", config.socket_address);
+
+        loop {
+            let (stream, _) = match listener.accept().await {
                 Ok(v) => v,
-                Err(error) => {
-                    error!("TlsAcceptorError[br]{}", error);
-                    return;
+                Err(e) => {
+                    error!("Failed accept tcp listener:\n{}", e);
+                    continue;
+                }
+            };
+            let mut stream = match tls.accept(stream).await {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("Failed accept tls listener:\n{}", e);
+                    continue;
                 }
             };
 
-            info!("({}) Client connected", client_address);
+            let peer_addr = match stream.get_ref().0.peer_addr() {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("Failed get peer addr:\n{}", e);
+                    continue;
+                }
+            };
 
-            match handle_connection(&mut stream, config, &client_address).await {
-                Ok(_) => {
-                    info!("({}) Backup successful", client_address);
-                    if let Err(error) = stream.write_all(b"success").await {
-                        error!("WriteSuccessError[br]{}", error);
-                    }
+            info!("Client connected: {}", peer_addr);
 
-                    if let Err(error) = stream.shutdown().await {
-                        error!("ShutdownClientError[br]{}", error);
+            smol::spawn(async move {
+                let mut attempt = 0;
+
+                while attempt < 5 {
+                    if let Err(e) = handler(&mut stream).await {
+                        error!("[{}]\nFailed handling connection: {}", peer_addr.red(), e);
+
+                        if let Err(e) = stream.write_all("retry".as_bytes()).await {
+                            error!("[{}]\nFailed sending retry:\n{}", peer_addr.red(), e);
+                        }
+                        attempt += 1;
+                    } else {
+                        break;
                     }
                 }
-                Err(error) => {
-                    error!("HandleConnectionError[br]{}", error);
-                    let message = format!("error: {}", error);
 
-                    if let Err(error) = stream.write_all(message.as_bytes()).await {
-                        error!("WriteErrorError[br]{}", error);
-                    }
-
-                    if let Err(error) = stream.shutdown().await {
-                        error!("ShutdownClientError[br]{}", error);
-                    };
-
-                    let error_body = format_message_short(&error.to_string());
-
-                    if let Err(error) = Notification::new()
-                        .summary("Backups Server Error")
-                        .body(error_body.as_str())
-                        .show()
-                    {
-                        error!("ShowNotificationError[br]{}", error);
-                    }
+                if let Err(e) = stream.write_all("exit".as_bytes()).await {
+                    error!("[{}]\nFailed sending exit:\n{}", peer_addr.red(), e);
                 }
-            }
-        });
-    }
+            })
+            .detach();
+        }
+    })
 }
