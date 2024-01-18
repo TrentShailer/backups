@@ -1,6 +1,9 @@
-use std::io;
+use std::{io, sync::Arc};
 
-use crate::backup_config::BackupConfig;
+use crate::{
+    backup_config::BackupConfig,
+    history::{History, SaveError},
+};
 
 use blake3::Hash;
 use chrono::Local;
@@ -9,6 +12,7 @@ use rustls_pki_types::ServerName;
 use serde::{Deserialize, Serialize};
 use smol::{
     io::{AsyncReadExt, AsyncWriteExt},
+    lock::RwLock,
     net::TcpStream,
     process::Command,
 };
@@ -27,6 +31,7 @@ pub async fn make_backup(
     backup_config: &BackupConfig,
     connector: &TlsConnector,
     domain: ServerName<'static>,
+    history: Arc<RwLock<History>>,
 ) -> Result<(), MakeBackupError> {
     let file = get_file(backup_config).await?;
     let file_hash = blake3::hash(&file);
@@ -72,6 +77,12 @@ pub async fn make_backup(
             break;
         }
     }
+
+    let mut guard = history.write().await;
+    guard
+        .update(&backup_config.service_name, &backup_config.backup_name)
+        .await?;
+    drop(guard);
 
     Ok(())
 }
@@ -119,4 +130,6 @@ pub enum MakeBackupError {
     SerializePayload(#[from] toml::ser::Error),
     #[error("GetfileError: {0}")]
     GetFile(#[from] GetFileError),
+    #[error("HistoryError: {0}")]
+    History(#[from] SaveError),
 }

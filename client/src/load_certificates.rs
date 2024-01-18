@@ -10,31 +10,35 @@ use thiserror::Error;
 
 use crate::scheduler_config::SchedulerConfig;
 
-pub fn load_certificates(
-    config: &SchedulerConfig,
-) -> Result<
-    (
-        Vec<CertificateDer<'static>>,
-        PrivateKeyDer<'static>,
-        RootCertStore,
-        ServerName<'static>,
-    ),
-    Error,
-> {
+pub struct Certificates {
+    pub certificates: Vec<CertificateDer<'static>>,
+    pub key: PrivateKeyDer<'static>,
+    pub root_cert_store: RootCertStore,
+    pub domain: ServerName<'static>,
+}
+
+pub fn load_certificates(config: &SchedulerConfig) -> Result<Certificates, Error> {
+    // Cert
     let cert_file = File::open(&config.certificate_path).map_err(|e| Error::ReadFile("cert", e))?;
-    let certificates: Vec<CertificateDer<'static>> = certs(&mut BufReader::new(cert_file))
-        .collect::<io::Result<Vec<_>>>()
+
+    let certificates = certs(&mut BufReader::new(cert_file))
+        .collect::<io::Result<Vec<CertificateDer<'static>>>>()
         .map_err(|e| Error::LoadCert("certs", e))?;
 
+    // Key
     let key_file = File::open(&config.key_path).map_err(|e| Error::ReadFile("key", e))?;
+
     let key = private_key(&mut BufReader::new(key_file))
         .map_err(|e| Error::LoadCert("key", e))?
         .unwrap();
 
+    // Root CA
     let root_ca_file = File::open(&config.root_ca_path).map_err(|e| Error::ReadFile("ca", e))?;
-    let root_certs: Vec<CertificateDer<'static>> = certs(&mut BufReader::new(root_ca_file))
-        .collect::<io::Result<Vec<_>>>()
+
+    let root_certs = certs(&mut BufReader::new(root_ca_file))
+        .collect::<io::Result<Vec<CertificateDer<'static>>>>()
         .map_err(|e| Error::LoadCert("ca certs", e))?;
+
     let mut root_cert_store = RootCertStore::empty();
     for cert in root_certs {
         root_cert_store
@@ -42,9 +46,15 @@ pub fn load_certificates(
             .map_err(Error::RootStore)?;
     }
 
+    // Domain
     let domain = ServerName::try_from(config.socket_address.clone()).map_err(Error::ServerName)?;
 
-    Ok((certificates, key, root_cert_store, domain))
+    Ok(Certificates {
+        certificates,
+        key,
+        root_cert_store,
+        domain,
+    })
 }
 
 #[derive(Debug, Error)]

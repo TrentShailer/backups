@@ -5,6 +5,7 @@ use std::{
     time::SystemTime,
 };
 
+use log::error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
