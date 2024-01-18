@@ -19,7 +19,11 @@ use backup_client::make_backup;
 use futures_rustls::{rustls::ClientConfig, TlsConnector};
 use log::error;
 use owo_colors::OwoColorize;
-use smol::{future, lock::Mutex, Executor, Task, Timer};
+use smol::{
+    future,
+    lock::{Mutex, RwLock, RwLockWriteGuard},
+    Executor, Task, Timer,
+};
 
 const CONFIG_PATH: &str = "./config.toml";
 
@@ -58,7 +62,7 @@ fn main() {
         }
     };
 
-    let history = Arc::new(Mutex::new(history));
+    let history = Arc::new(RwLock::new(history));
 
     let ex = Executor::new();
     let mut tasks: Vec<Task<()>> = Vec::new();
@@ -103,7 +107,7 @@ fn create_backup_task(
     root_ca: &futures_rustls::rustls::RootCertStore,
     domain: &rustls_pki_types::ServerName<'static>,
     ex: &Executor<'static>,
-    history: Arc<Mutex<History>>,
+    history: Arc<RwLock<History>>,
 ) -> Result<Task<()>, futures_rustls::rustls::Error> {
     let sleep_duration = Duration::from_secs(backup.interval);
     let client_config = BackupConfig::from_scheduler(config, &service, &backup);
@@ -119,10 +123,12 @@ fn create_backup_task(
     Ok(ex.spawn(async move {
         let connector = TlsConnector::from(Arc::new(tls_config));
 
-        let mut guard = history.lock().await;
+        let guard = history.read().await;
 
         let last_backed_up =
             guard.last_backed_up(&client_config.service_name, &client_config.backup_name);
+
+        drop(guard);
 
         let duration_since = match SystemTime::now().duration_since(last_backed_up) {
             Ok(v) => v,
@@ -142,6 +148,7 @@ fn create_backup_task(
                     e
                 );
             } else {
+                let mut guard = history.write().await;
                 if let Err(e) = guard
                     .update(&client_config.service_name, &client_config.backup_name)
                     .await
@@ -156,10 +163,9 @@ fn create_backup_task(
                         e
                     );
                 }
+                drop(guard);
             }
         }
-
-        drop(guard);
 
         loop {
             Timer::after(sleep_duration).await;
@@ -177,7 +183,7 @@ fn create_backup_task(
                     e
                 );
             } else {
-                let mut guard = history.lock().await;
+                let mut guard = history.write().await;
 
                 if let Err(e) = guard
                     .update(&client_config.service_name, &client_config.backup_name)
