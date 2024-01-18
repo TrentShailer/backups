@@ -39,36 +39,46 @@ pub fn create_backup_task(
         let connector = TlsConnector::from(Arc::new(tls_config));
 
         if should_create_backup(history.clone(), &client_config, &sleep_duration).await {
-            if let Err(e) =
-                make_backup(&client_config, &connector, domain.clone(), history.clone()).await
-            {
-                error!(
-                    "[{}]\nFailed to make backup: {}",
-                    format!(
-                        "{}::{}",
-                        client_config.service_name, client_config.backup_name
-                    )
-                    .red(),
-                    e
-                );
+            loop {
+                if let Err(e) =
+                    make_backup(&client_config, &connector, domain.clone(), history.clone()).await
+                {
+                    error!(
+                        "[{}]\nFailed to make backup: {}",
+                        format!(
+                            "{}::{}",
+                            client_config.service_name, client_config.backup_name
+                        )
+                        .red(),
+                        e
+                    );
+                    Timer::after(Duration::from_secs(60 * 20)).await; // 20 minute delay after failure before retrying
+                } else {
+                    break;
+                }
             }
         }
 
         loop {
             Timer::after(sleep_duration).await;
 
-            if let Err(e) =
-                make_backup(&client_config, &connector, domain.clone(), history.clone()).await
-            {
-                error!(
-                    "[{}]\nFailed to make backup: {}",
-                    format!(
-                        "{}::{}",
-                        client_config.service_name, client_config.backup_name
-                    )
-                    .red(),
-                    e
-                );
+            loop {
+                if let Err(e) =
+                    make_backup(&client_config, &connector, domain.clone(), history.clone()).await
+                {
+                    error!(
+                        "[{}]\nFailed to make backup: {}",
+                        format!(
+                            "{}::{}",
+                            client_config.service_name, client_config.backup_name
+                        )
+                        .red(),
+                        e
+                    );
+                    Timer::after(Duration::from_secs(60 * 20)).await; // 20 minute delay after failure before retrying
+                } else {
+                    break;
+                }
             }
         }
     }))
