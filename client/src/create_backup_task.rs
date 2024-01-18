@@ -9,10 +9,10 @@ use owo_colors::OwoColorize;
 use smol::{lock::RwLock, Executor, Task, Timer};
 
 use crate::{
-    backup_client::make_backup,
     backup_config::BackupConfig,
     history::History,
     load_certificates::Certificates,
+    make_backup::make_backup,
     scheduler_config::{SchedulerBackup, SchedulerConfig, SchedulerService},
 };
 

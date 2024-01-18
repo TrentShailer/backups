@@ -1,9 +1,9 @@
-mod backup_client;
 mod backup_config;
 mod create_backup_task;
 mod history;
 mod load_certificates;
 mod logger;
+mod make_backup;
 mod scheduler_config;
 
 use std::{fs, sync::Arc};
