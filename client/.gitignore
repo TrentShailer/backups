@@ -1,6 +1,6 @@
 /target
 .env
 /ssl
-backup_history.toml
+history.toml
 /logs
 config.toml

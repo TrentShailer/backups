@@ -1,87 +1,87 @@
-mod backups;
-mod config;
+mod backup_config;
+mod create_backup_task;
+mod history;
+mod load_certificates;
 mod logger;
-mod tls;
+mod make_backup;
+mod scheduler_config;
+
+use std::{fs, sync::Arc};
 
 use crate::{
-    backups::{
-        backup_history::{self, load_backup_history},
-        backup_types::BackupTypes,
-    },
-    tls::TlsClient,
+    history::History, load_certificates::load_certificates, scheduler_config::SchedulerConfig,
 };
-use config::Config;
-use log::{error, info};
-use logger::init_fern;
-use tokio::sync::mpsc::channel;
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    init_fern().unwrap();
+use log::error;
+use owo_colors::OwoColorize;
+use smol::{future, lock::RwLock, Executor, Task};
 
-    let config = match Config::load() {
+const CONFIG_PATH: &str = "./config.toml";
+
+fn main() {
+    logger::init_fern().unwrap();
+
+    let config_contents = match fs::read_to_string(CONFIG_PATH) {
         Ok(v) => v,
-        Err(error) => {
-            error!("ConfigLoadError[br]{}", error);
-            panic!("ConfigLoadError\n{}", error);
+        Err(e) => {
+            error!("Failed to read config: {}", e);
+            return;
         }
     };
 
-    let mut history = match load_backup_history(&config.program_config) {
+    let config: SchedulerConfig = match toml::from_str(&config_contents) {
         Ok(v) => v,
-        Err(error) => {
-            error!("LoadBackupHistoryError[br]{}", error);
-            panic!("LoadBackupHistoryError\n{}", error);
+        Err(e) => {
+            error!("Failed to parse config: {}", e);
+            return;
         }
     };
 
-    let (backup_tx, mut backup_rx) = channel::<backup_history::ChannelData>(10);
-
-    let tls_client = match TlsClient::new(config.tls_config).await {
+    let certificates = match load_certificates(&config) {
         Ok(v) => v,
-        Err(error) => {
-            error!("NewTlsClientError[br]{}", error);
-            panic!("NewTlsClientError\n{}", error);
+        Err(e) => {
+            error!("Failed to load certificates: {}", e);
+            return;
         }
     };
 
-    info!("Client Started");
+    let history = match History::init() {
+        Ok(v) => v,
+        Err(e) => {
+            error!("Failed to load history: {}", e);
+            return;
+        }
+    };
 
-    for service in config.program_config.service_config.iter() {
-        match service {
-            BackupTypes::DockerPostgres {
-                config: backup_config,
-            } => {
-                let backup_config = backup_config.clone();
-                let history = history.clone();
-                let backup_tx = backup_tx.clone();
-                let tls_client = tls_client.clone();
+    let history = Arc::new(RwLock::new(history));
 
-                tokio::spawn(async move {
-                    backup_config
-                        .spawn_tasks(history, backup_tx, tls_client)
-                        .await;
-                });
-            }
-        };
+    let ex = Executor::new();
+    let mut tasks: Vec<Task<()>> = Vec::new();
+
+    for service in config.services.as_slice() {
+        for backup in service.backups.as_slice() {
+            let task = match create_backup_task::create_backup_task(
+                &config,
+                service,
+                backup,
+                &certificates,
+                &ex,
+                history.clone(),
+            ) {
+                Ok(v) => v,
+                Err(e) => {
+                    error!(
+                        "[{}] Failed to create backup task:\n{}",
+                        format!("{}/{}", service.service_name, backup.backup_name).red(),
+                        e
+                    );
+                    return;
+                }
+            };
+            tasks.push(task);
+        }
     }
 
-    let history_manager = tokio::spawn(async move {
-        while let Some(data) = backup_rx.recv().await {
-            if let Err(error) = history.update_history(data) {
-                error!("UpdateHistoryError[br]{}", error);
-                continue;
-            }
-            if let Err(error) = history.save_async().await {
-                error!("SaveHistoryError[br]{}", error);
-            }
-        }
-    });
-
-    if let Err(error) = history_manager.await {
-        error!("AwaitHistoryManagerError[br]{}", error);
-        panic!("AwaitHistoryManagerError\n{}", error);
-    };
-
-    Ok(())
+    future::block_on(ex.run(future::pending::<()>()));
+    unreachable!();
 }
