@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 use std::{fs, sync::Arc};
 
 use futures_rustls::{
