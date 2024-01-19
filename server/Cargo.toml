@@ -11,7 +11,6 @@ futures-rustls = "0.25.1"
 log = "0.4.20"
 notify-rust = "4.10.0"
 owo-colors = "4.0.0"
-regex = "1.10.2"
 rustls-pemfile = "2.0.0"
 rustls-pki-types = "1.0.0"
 serde = { version = "1.0.193", features = ["derive"] }

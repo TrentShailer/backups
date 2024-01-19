@@ -6,6 +6,7 @@ use futures_rustls::{
 };
 use load_certificates::load_certificates;
 use log::{error, info};
+use notify_rust::Notification;
 use owo_colors::OwoColorize;
 use smol::{io::AsyncWriteExt, net::TcpListener};
 
@@ -124,6 +125,12 @@ pub fn main() {
 
                 if let Err(e) = stream.write_all("exit".as_bytes()).await {
                     error!("[{}]\nFailed sending exit:\n{}", peer_addr.red(), e);
+                }
+
+                if attempt == 5 {
+                    if let Err(e) = Notification::new().summary("Backups server error").show() {
+                        error!("Failed to show notification:\n{}", e);
+                    }
                 }
             })
             .detach();

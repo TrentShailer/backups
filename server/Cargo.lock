@@ -272,7 +272,6 @@ dependencies = [
  "log",
  "notify-rust",
  "owo-colors",
- "regex",
  "rustls-pemfile",
  "rustls-pki-types",
  "serde",
