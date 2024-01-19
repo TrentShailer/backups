@@ -11,6 +11,7 @@ use smol::{io::AsyncWriteExt, net::TcpListener};
 
 use crate::{handler::handler, server_config::ServerConfig};
 
+mod cleanup;
 mod handler;
 mod load_certificates;
 mod logger;
@@ -18,6 +19,7 @@ mod payload;
 mod server_config;
 
 const CONFIG_PATH: &str = "./config.toml";
+const BACKUP_PATH: &str = "./backups";
 
 pub fn main() {
     logger::init_fern().unwrap();

@@ -11,6 +11,7 @@ pub struct BackupConfig {
     pub postgres_database: String,
     pub service_name: String,
     pub backup_name: String,
+    pub max_files: usize,
 }
 
 impl BackupConfig {
@@ -27,6 +28,7 @@ impl BackupConfig {
             postgres_database: service.postgres_database.clone(),
             service_name: service.service_name.clone(),
             backup_name: backup.backup_name.clone(),
+            max_files: backup.max_files,
         }
     }
 }

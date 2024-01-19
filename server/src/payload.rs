@@ -8,4 +8,5 @@ pub struct Payload {
     pub file_name: String,
     pub service_name: String,
     pub backup_name: String,
+    pub max_files: usize,
 }

@@ -25,4 +25,5 @@ pub struct SchedulerService {
 pub struct SchedulerBackup {
     pub backup_name: String,
     pub interval: u64,
+    pub max_files: usize,
 }

@@ -25,6 +25,7 @@ pub struct Payload {
     pub file_name: String,
     pub service_name: String,
     pub backup_name: String,
+    pub max_files: usize,
 }
 
 pub async fn make_backup(
@@ -41,6 +42,7 @@ pub async fn make_backup(
         file_name: Local::now().format("%Y-%m-%d_%H-%M-%S.backup").to_string(),
         service_name: backup_config.service_name.clone(),
         backup_name: backup_config.backup_name.to_string(),
+        max_files: backup_config.max_files,
     };
 
     let payload_string = toml::to_string(&payload)?;
@@ -57,12 +59,21 @@ pub async fn make_backup(
         .await
         .map_err(MakeBackupError::Connect)?;
 
-    stream
-        .write_all(payload_string.as_bytes())
-        .await
-        .map_err(MakeBackupError::Write)?;
-
     loop {
+        stream
+            .write_all(payload_string.as_bytes())
+            .await
+            .map_err(MakeBackupError::Write)?;
+
+        let mut response: Vec<u8> = vec![0; 32];
+        let response_size = stream
+            .read(&mut response)
+            .await
+            .map_err(MakeBackupError::Read)?;
+        if &response[0..response_size] != b"ready" {
+            break;
+        }
+
         stream
             .write_all(&file)
             .await
