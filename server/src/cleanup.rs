@@ -4,14 +4,11 @@ use smol::{
     fs::{self},
     stream::StreamExt,
 };
+use thiserror::Error;
 
 use crate::BACKUP_PATH;
 
-pub async fn cleanup(
-    service_name: &str,
-    backup_name: &str,
-    max_files: usize,
-) -> Result<(), smol::io::Error> {
+pub async fn cleanup(service_name: &str, backup_name: &str, max_files: usize) -> Result<(), Error> {
     let path = PathBuf::from(BACKUP_PATH)
         .join(service_name)
         .join(backup_name);
@@ -26,7 +23,7 @@ pub async fn cleanup(
             continue;
         }
 
-        let created = metadata.created()?;
+        let created = metadata.created().map_err(Error::CreationTime)?;
 
         files.push((created, entry.path()));
     }
@@ -46,4 +43,12 @@ pub async fn cleanup(
     }
 
     Ok(())
+}
+
+#[derive(Debug, Error)]
+pub enum Error {
+    #[error("IoError:\n{0}")]
+    Io(#[from] smol::io::Error),
+    #[error("UnsupportedCreationTime")]
+    CreationTime(#[source] smol::io::Error),
 }

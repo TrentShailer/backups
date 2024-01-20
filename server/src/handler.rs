@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use futures_rustls::server::TlsStream;
-use log::error;
+use log::{error, warn};
 use smol::{
     fs::{self},
     io::{self, AsyncReadExt, AsyncWriteExt},
@@ -9,7 +9,11 @@ use smol::{
 };
 use thiserror::Error;
 
-use crate::{cleanup::cleanup, payload::Payload, BACKUP_PATH};
+use crate::{
+    cleanup::{self, cleanup},
+    payload::Payload,
+    BACKUP_PATH,
+};
 
 pub async fn handler(stream: &mut TlsStream<TcpStream>) -> Result<(), HandleError> {
     let mut payload_buffer: Vec<u8> = vec![0; 1024];
@@ -52,13 +56,20 @@ pub async fn handler(stream: &mut TlsStream<TcpStream>) -> Result<(), HandleErro
         return Err(HandleError::HashMismatch);
     }
 
-    cleanup(
+    if let Err(e) = cleanup(
         &payload.service_name,
         &payload.backup_name,
         payload.max_files,
     )
     .await
-    .map_err(HandleError::Cleanup)?;
+    {
+        match e {
+            cleanup::Error::Io(_) => return Err(HandleError::Cleanup(e)),
+            cleanup::Error::CreationTime(_) => {
+                warn!("Unable to cleanup, filesystem doesn't support creation time.")
+            }
+        };
+    }
 
     Ok(())
 }
@@ -79,6 +90,6 @@ pub enum HandleError {
     ReadFile(#[source] io::Error),
     #[error("HashMismatch")]
     HashMismatch,
-    #[error("CleanupError:\n{0}")]
-    Cleanup(#[source] io::Error),
+    #[error("CleanupError: {0}")]
+    Cleanup(#[from] cleanup::Error),
 }
