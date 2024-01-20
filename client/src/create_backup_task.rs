@@ -3,7 +3,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use futures_rustls::{rustls::ClientConfig, TlsConnector};
+use futures_rustls::TlsConnector;
 use log::error;
 use owo_colors::OwoColorize;
 use rustls_pki_types::ServerName;
@@ -15,17 +15,20 @@ pub fn create_backup_task(
     client_config: BackupConfig,
     sleep_duration: Duration,
     domain: ServerName<'static>,
-    tls_config: Arc<ClientConfig>,
+    tls_connector: TlsConnector,
     ex: &Executor<'static>,
     history: Arc<RwLock<History>>,
 ) -> Result<Task<()>, futures_rustls::rustls::Error> {
     Ok(ex.spawn(async move {
-        let connector = TlsConnector::from(tls_config);
-
         if should_create_backup(history.clone(), &client_config, &sleep_duration).await {
             loop {
-                if let Err(e) =
-                    make_backup(&client_config, &connector, domain.clone(), history.clone()).await
+                if let Err(e) = make_backup(
+                    &client_config,
+                    &tls_connector,
+                    domain.clone(),
+                    history.clone(),
+                )
+                .await
                 {
                     error!(
                         "[{}]\nFailed to make backup: {}",
@@ -36,7 +39,7 @@ pub fn create_backup_task(
                         .red(),
                         e
                     );
-                    Timer::after(Duration::from_secs(60 * 20)).await; // 20 minute delay after failure before retrying
+                    Timer::after(Duration::from_secs(60 * 10)).await; // 10 minute delay after failure before retrying
                 } else {
                     break;
                 }
@@ -47,8 +50,13 @@ pub fn create_backup_task(
             Timer::after(sleep_duration).await;
 
             loop {
-                if let Err(e) =
-                    make_backup(&client_config, &connector, domain.clone(), history.clone()).await
+                if let Err(e) = make_backup(
+                    &client_config,
+                    &tls_connector,
+                    domain.clone(),
+                    history.clone(),
+                )
+                .await
                 {
                     error!(
                         "[{}]\nFailed to make backup: {}",
@@ -59,7 +67,7 @@ pub fn create_backup_task(
                         .red(),
                         e
                     );
-                    Timer::after(Duration::from_secs(60 * 20)).await; // 20 minute delay after failure before retrying
+                    Timer::after(Duration::from_secs(60 * 10)).await; // 10 minute delay after failure before retrying
                 } else {
                     break;
                 }

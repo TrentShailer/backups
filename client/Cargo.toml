@@ -10,6 +10,7 @@ fern = { version = "0.6.2", features = ["date-based"] }
 futures-rustls = "0.25.1"
 log = "0.4.20"
 owo-colors = "4.0.0"
+rustls = "0.22.2"
 rustls-pemfile = "2.0.0"
 rustls-pki-types = "1.0.1"
 serde = { version = "1.0.193", features = ["derive"] }

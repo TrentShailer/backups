@@ -13,7 +13,7 @@ use crate::{
     scheduler_config::SchedulerConfig,
 };
 
-use futures_rustls::rustls::ClientConfig;
+use futures_rustls::{rustls::ClientConfig, TlsConnector};
 use log::error;
 use owo_colors::OwoColorize;
 use smol::{future, lock::RwLock, Executor, Task};
@@ -48,17 +48,16 @@ fn main() {
     };
 
     let tls_config = match ClientConfig::builder()
-        .with_root_certificates(certificates.root_cert_store.clone())
-        .with_client_auth_cert(
-            certificates.certificates.clone(),
-            certificates.key.clone_key(),
-        ) {
+        .with_root_certificates(certificates.root_cert_store)
+        .with_client_auth_cert(certificates.certificates, certificates.key)
+    {
         Ok(v) => Arc::new(v),
         Err(e) => {
             error!("Failed to create tls config:\n{}", e);
             return;
         }
     };
+    let connector = TlsConnector::from(tls_config);
 
     let history = match History::init() {
         Ok(v) => v,
@@ -82,7 +81,7 @@ fn main() {
                 client_config,
                 sleep_duration,
                 certificates.domain.clone(),
-                tls_config.clone(),
+                connector.clone(),
                 &ex,
                 history.clone(),
             ) {
