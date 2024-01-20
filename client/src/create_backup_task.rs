@@ -6,37 +6,21 @@ use std::{
 use futures_rustls::{rustls::ClientConfig, TlsConnector};
 use log::error;
 use owo_colors::OwoColorize;
+use rustls_pki_types::ServerName;
 use smol::{lock::RwLock, Executor, Task, Timer};
 
-use crate::{
-    backup_config::BackupConfig,
-    history::History,
-    load_certificates::Certificates,
-    make_backup::make_backup,
-    scheduler_config::{SchedulerBackup, SchedulerConfig, SchedulerService},
-};
+use crate::{backup_config::BackupConfig, history::History, make_backup::make_backup};
 
 pub fn create_backup_task(
-    config: &SchedulerConfig,
-    service: &SchedulerService,
-    backup: &SchedulerBackup,
-    certificates: &Certificates,
+    client_config: BackupConfig,
+    sleep_duration: Duration,
+    domain: ServerName<'static>,
+    tls_config: Arc<ClientConfig>,
     ex: &Executor<'static>,
     history: Arc<RwLock<History>>,
 ) -> Result<Task<()>, futures_rustls::rustls::Error> {
-    let sleep_duration = Duration::from_secs(backup.interval);
-    let client_config = BackupConfig::from_scheduler(config, &service, &backup);
-    let domain = certificates.domain.clone();
-
-    let tls_config = ClientConfig::builder()
-        .with_root_certificates(certificates.root_cert_store.clone())
-        .with_client_auth_cert(
-            certificates.certificates.clone(),
-            certificates.key.clone_key(),
-        )?;
-
     Ok(ex.spawn(async move {
-        let connector = TlsConnector::from(Arc::new(tls_config));
+        let connector = TlsConnector::from(tls_config);
 
         if should_create_backup(history.clone(), &client_config, &sleep_duration).await {
             loop {

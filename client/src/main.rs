@@ -6,12 +6,14 @@ mod logger;
 mod make_backup;
 mod scheduler_config;
 
-use std::{fs, sync::Arc};
+use std::{fs, sync::Arc, time::Duration};
 
 use crate::{
-    history::History, load_certificates::load_certificates, scheduler_config::SchedulerConfig,
+    backup_config::BackupConfig, history::History, load_certificates::load_certificates,
+    scheduler_config::SchedulerConfig,
 };
 
+use futures_rustls::rustls::ClientConfig;
 use log::error;
 use owo_colors::OwoColorize;
 use smol::{future, lock::RwLock, Executor, Task};
@@ -45,6 +47,19 @@ fn main() {
         }
     };
 
+    let tls_config = match ClientConfig::builder()
+        .with_root_certificates(certificates.root_cert_store.clone())
+        .with_client_auth_cert(
+            certificates.certificates.clone(),
+            certificates.key.clone_key(),
+        ) {
+        Ok(v) => Arc::new(v),
+        Err(e) => {
+            error!("Failed to create tls config:\n{}", e);
+            return;
+        }
+    };
+
     let history = match History::init() {
         Ok(v) => v,
         Err(e) => {
@@ -60,11 +75,14 @@ fn main() {
 
     for service in config.services.as_slice() {
         for backup in service.backups.as_slice() {
+            let sleep_duration = Duration::from_secs(backup.interval);
+            let client_config = BackupConfig::from_scheduler(&config, &service, &backup);
+
             let task = match create_backup_task::create_backup_task(
-                &config,
-                service,
-                backup,
-                &certificates,
+                client_config,
+                sleep_duration,
+                certificates.domain.clone(),
+                tls_config.clone(),
                 &ex,
                 history.clone(),
             ) {
