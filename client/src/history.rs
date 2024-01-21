@@ -1,3 +1,5 @@
+mod history_items;
+
 use std::{
     fs::File,
     io::{self, Read},
@@ -8,24 +10,17 @@ use std::{
 use log::error;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
+use tokio::fs;
+
+use crate::scheduler_config::BackupName;
+
+use self::history_items::EndpointHistory;
 
 const HISTORY_PATH: &str = "./history.toml";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct History {
-    pub services: Vec<ServiceHistory>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct ServiceHistory {
-    pub service_name: String,
-    pub backups: Vec<BackupHistory>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct BackupHistory {
-    pub backup_name: String,
-    pub last_backed_up: SystemTime,
+    pub endpoints: Vec<EndpointHistory>,
 }
 
 impl History {
@@ -40,60 +35,32 @@ impl History {
 
             Ok(history)
         } else {
-            Ok(Self { services: vec![] })
+            Ok(Self { endpoints: vec![] })
         }
     }
 
-    pub fn last_backed_up(&self, service_name: &str, backup_name: &str) -> SystemTime {
-        let maybe_service = self
-            .services
-            .iter()
-            .find(|service| service.service_name == service_name);
-
-        if let Some(service) = maybe_service {
-            let maybe_backup = service
-                .backups
-                .iter()
-                .find(|backup| backup.backup_name == backup_name);
-
-            if let Some(backup) = maybe_backup {
-                backup.last_backed_up
-            } else {
-                SystemTime::UNIX_EPOCH
+    pub fn last_backed_up(&self, name: &BackupName) -> SystemTime {
+        for endpoint in self.endpoints.iter() {
+            if let Some(v) = endpoint.find(name) {
+                return v;
             }
-        } else {
-            SystemTime::UNIX_EPOCH
         }
+        return SystemTime::UNIX_EPOCH;
     }
 
-    pub async fn update(&mut self, service_name: &str, backup_name: &str) -> Result<(), SaveError> {
-        let maybe_service = self
-            .services
-            .iter_mut()
-            .find(|service| service.service_name == service_name);
-
-        if let Some(service) = maybe_service {
-            let maybe_backup = service
-                .backups
-                .iter_mut()
-                .find(|backup| backup.backup_name == backup_name);
-
-            if let Some(backup) = maybe_backup {
-                backup.last_backed_up = SystemTime::now();
-            } else {
-                service.backups.push(BackupHistory {
-                    backup_name: backup_name.to_string(),
-                    last_backed_up: SystemTime::now(),
-                });
+    pub async fn update(&mut self, name: &BackupName) -> Result<(), SaveError> {
+        let mut found = false;
+        for endpoint in self.endpoints.iter_mut() {
+            if endpoint.endpoint_name == name.endpoint_name {
+                endpoint.update(name);
+                found = true;
+                break;
             }
-        } else {
-            self.services.push(ServiceHistory {
-                service_name: service_name.to_string(),
-                backups: vec![BackupHistory {
-                    backup_name: backup_name.to_string(),
-                    last_backed_up: SystemTime::now(),
-                }],
-            });
+        }
+
+        if found == false {
+            let endpoint = EndpointHistory::create(name);
+            self.endpoints.push(endpoint);
         }
 
         Ok(self.save().await?)
@@ -101,7 +68,7 @@ impl History {
 
     async fn save(&self) -> Result<(), SaveError> {
         let contents = toml::to_string(self)?;
-        smol::fs::write(PathBuf::from(HISTORY_PATH), contents).await?;
+        fs::write(PathBuf::from(HISTORY_PATH), contents).await?;
         Ok(())
     }
 }
@@ -119,7 +86,7 @@ pub enum InitError {
 #[derive(Debug, Error)]
 pub enum SaveError {
     #[error("WriteError:\n{0}")]
-    Write(#[from] smol::io::Error),
+    Write(#[from] io::Error),
     #[error("SerializeError:\n{0}")]
     Serialize(#[from] toml::ser::Error),
 }

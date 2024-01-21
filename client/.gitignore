@@ -4,3 +4,4 @@
 history.toml
 /logs
 config.toml
+*.mem

@@ -1,26 +1,25 @@
-mod backup_config;
-mod create_backup_task;
+mod backup_task;
+mod endpoint;
 mod history;
-mod load_certificates;
 mod logger;
-mod make_backup;
 mod scheduler_config;
+mod service;
 
 use std::{fs, sync::Arc, time::Duration};
 
-use crate::{
-    backup_config::BackupConfig, history::History, load_certificates::load_certificates,
-    scheduler_config::SchedulerConfig,
-};
+use crate::{history::History, scheduler_config::SchedulerConfig};
 
-use futures_rustls::{rustls::ClientConfig, TlsConnector};
+use backup_task::backup_task;
+use endpoint::Endpoint;
 use log::error;
-use owo_colors::OwoColorize;
-use smol::{future, lock::RwLock, Executor, Task};
+use scheduler_config::BackupName;
+use tokio::{signal, sync::RwLock};
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 const CONFIG_PATH: &str = "./config.toml";
 
-fn main() {
+#[tokio::main]
+async fn main() {
     logger::init_fern().unwrap();
 
     let config_contents = match fs::read_to_string(CONFIG_PATH) {
@@ -39,26 +38,6 @@ fn main() {
         }
     };
 
-    let certificates = match load_certificates(&config) {
-        Ok(v) => v,
-        Err(e) => {
-            error!("Failed to load certificates: {}", e);
-            return;
-        }
-    };
-
-    let tls_config = match ClientConfig::builder()
-        .with_root_certificates(certificates.root_cert_store)
-        .with_client_auth_cert(certificates.certificates, certificates.key)
-    {
-        Ok(v) => Arc::new(v),
-        Err(e) => {
-            error!("Failed to create tls config:\n{}", e);
-            return;
-        }
-    };
-    let connector = TlsConnector::from(tls_config);
-
     let history = match History::init() {
         Ok(v) => v,
         Err(e) => {
@@ -69,36 +48,46 @@ fn main() {
 
     let history = Arc::new(RwLock::new(history));
 
-    let ex = Executor::new();
-    let mut tasks: Vec<Task<()>> = Vec::new();
+    let tracker = TaskTracker::new();
+    let cancel_token = CancellationToken::new();
 
-    for service in config.services.as_slice() {
-        for backup in service.backups.as_slice() {
-            let sleep_duration = Duration::from_secs(backup.interval);
-            let client_config = BackupConfig::from_scheduler(&config, &service, &backup);
+    let endpoints: Vec<Arc<Endpoint>> = config
+        .endpoints
+        .into_iter()
+        .map(|endpoint| Arc::new(endpoint))
+        .collect();
 
-            let task = match create_backup_task::create_backup_task(
-                client_config,
-                sleep_duration,
-                certificates.domain.clone(),
-                connector.clone(),
-                &ex,
-                history.clone(),
-            ) {
-                Ok(v) => v,
-                Err(e) => {
-                    error!(
-                        "[{}] Failed to create backup task:\n{}",
-                        format!("{}/{}", service.service_name, backup.backup_name).red(),
-                        e
-                    );
-                    return;
-                }
-            };
-            tasks.push(task);
+    for endpoint in endpoints {
+        for service in config.services.iter() {
+            for backup in service.backups.iter() {
+                let name =
+                    BackupName::new(endpoint.name(), &service.service_name, &backup.backup_name);
+                let service_config = service.config.clone();
+                let history = Arc::clone(&history);
+                let cancel_token = cancel_token.clone();
+                let endpoint = endpoint.clone();
+
+                tracker.spawn(backup_task(
+                    endpoint,
+                    service_config,
+                    name,
+                    backup.max_files,
+                    Duration::from_secs(backup.interval),
+                    history,
+                    cancel_token,
+                ));
+            }
         }
     }
 
-    future::block_on(ex.run(future::pending::<()>()));
-    unreachable!();
+    match signal::ctrl_c().await {
+        Ok(()) => {
+            cancel_token.cancel();
+            tracker.close();
+            tracker.wait().await;
+        }
+        Err(err) => {
+            error!("Unable to listen for shutdown signal:\n{}", err);
+        }
+    }
 }

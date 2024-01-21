@@ -1,10 +1,7 @@
 use std::{path::PathBuf, time::SystemTime};
 
-use smol::{
-    fs::{self},
-    stream::StreamExt,
-};
 use thiserror::Error;
+use tokio::{fs, io};
 
 use crate::BACKUP_PATH;
 
@@ -16,7 +13,7 @@ pub async fn cleanup(service_name: &str, backup_name: &str, max_files: usize) ->
     let mut entries = fs::read_dir(path).await?;
     let mut files: Vec<(SystemTime, PathBuf)> = Vec::new();
 
-    while let Some(entry) = entries.try_next().await? {
+    while let Some(entry) = entries.next_entry().await? {
         let metadata = entry.metadata().await?;
 
         if !metadata.is_file() {
@@ -48,7 +45,7 @@ pub async fn cleanup(service_name: &str, backup_name: &str, max_files: usize) ->
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("IoError:\n{0}")]
-    Io(#[from] smol::io::Error),
+    Io(#[from] io::Error),
     #[error("UnsupportedCreationTime")]
-    CreationTime(#[source] smol::io::Error),
+    CreationTime(#[source] io::Error),
 }
