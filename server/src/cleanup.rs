@@ -1,26 +1,26 @@
-use std::{path::PathBuf, time::SystemTime};
+use std::{fs, path::PathBuf, time::SystemTime};
 
-use thiserror::Error;
-use tokio::{fs, io};
+use anyhow::Context;
 
 use crate::BACKUP_PATH;
 
-pub async fn cleanup(service_name: &str, backup_name: &str, max_files: usize) -> Result<(), Error> {
+pub fn cleanup(service_name: &str, backup_name: &str, max_files: usize) -> anyhow::Result<()> {
     let path = PathBuf::from(BACKUP_PATH)
         .join(service_name)
         .join(backup_name);
 
-    let mut entries = fs::read_dir(path).await?;
+    let mut entries = fs::read_dir(path).context("Filaed to read backup dir")?;
     let mut files: Vec<(SystemTime, PathBuf)> = Vec::new();
 
-    while let Some(entry) = entries.next_entry().await? {
-        let metadata = entry.metadata().await?;
+    while let Some(entry) = entries.next() {
+        let entry = entry.context("Failed to get entry")?;
+        let metadata = entry.metadata().context("Failed to get metadata")?;
 
         if !metadata.is_file() {
             continue;
         }
 
-        let created = metadata.created().map_err(Error::CreationTime)?;
+        let created = metadata.created().context("Unsupported creation time")?;
 
         files.push((created, entry.path()));
     }
@@ -36,16 +36,8 @@ pub async fn cleanup(service_name: &str, backup_name: &str, max_files: usize) ->
     for _ in 0..files_to_delete {
         let file = files.pop().unwrap();
 
-        fs::remove_file(file.1).await?;
+        fs::remove_file(file.1).context("Failed to delete file")?;
     }
 
     Ok(())
-}
-
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("IoError:\n{0}")]
-    Io(#[from] io::Error),
-    #[error("UnsupportedCreationTime")]
-    CreationTime(#[source] io::Error),
 }

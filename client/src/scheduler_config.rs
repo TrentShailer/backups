@@ -1,6 +1,6 @@
 use serde::Deserialize;
 
-use crate::{endpoint::Endpoint, service::ServiceConfig};
+use crate::{endpoint::Endpoint, service::Service};
 
 #[derive(Debug, Deserialize)]
 pub struct SchedulerConfig {
@@ -10,7 +10,7 @@ pub struct SchedulerConfig {
 
 #[derive(Debug, Deserialize)]
 pub struct SchedulerService {
-    pub config: ServiceConfig,
+    pub config: Service,
     pub service_name: String,
     pub backups: Vec<SchedulerBackup>,
 }

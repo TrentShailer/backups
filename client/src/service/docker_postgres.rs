@@ -1,6 +1,7 @@
+use std::process::Command;
+
+use anyhow::{bail, Context};
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
-use tokio::{io, process::Command};
 
 use super::GetFile;
 
@@ -12,9 +13,7 @@ pub struct DockerPostgres {
 }
 
 impl GetFile for DockerPostgres {
-    type Error = GetFileError;
-
-    async fn get_file(&self) -> Result<Vec<u8>, Self::Error> {
+    fn get_file(&self) -> anyhow::Result<Vec<u8>> {
         let output = Command::new("docker")
             .args(&[
                 "exec",
@@ -26,21 +25,13 @@ impl GetFile for DockerPostgres {
                 &self.postgres_database,
             ])
             .output()
-            .await?;
+            .context("Failed to run command")?;
 
         if !output.status.success() {
             let error = String::from_utf8_lossy(&output.stderr).to_string();
-            return Err(Self::Error::CommandResult(error));
+            bail!(error);
         }
 
         Ok(output.stdout)
     }
-}
-
-#[derive(Debug, Error)]
-pub enum GetFileError {
-    #[error("CommandError:\n{0}")]
-    Command(#[from] io::Error),
-    #[error("CommandResultError:\n{0}")]
-    CommandResult(String),
 }

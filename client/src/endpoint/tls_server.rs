@@ -1,16 +1,10 @@
-use std::{path::PathBuf, sync::Arc};
+use std::{io::Write, net::TcpStream, path::PathBuf, sync::Arc};
 
+use anyhow::Context;
 use chrono::Local;
-use rustls::ClientConfig;
-use rustls_pki_types::{InvalidDnsNameError, ServerName};
+use rustls::{ClientConfig, ClientConnection, Stream};
 use serde::{Deserialize, Serialize};
-use shared::{load_certificates, LoadCertsError, TlsPayload};
-use thiserror::Error;
-use tokio::{
-    io::{self, AsyncReadExt, AsyncWriteExt},
-    net::TcpStream,
-};
-use tokio_rustls::TlsConnector;
+use shared::{load_certificates, TlsPayload};
 
 use crate::scheduler_config::BackupName;
 
@@ -26,14 +20,7 @@ pub struct TlsServer {
 }
 
 impl MakeBackup for TlsServer {
-    type Error = MakeBackupError;
-
-    async fn make_backup(
-        &self,
-        name: &BackupName,
-        max_files: usize,
-        file: &[u8],
-    ) -> Result<(), Self::Error> {
+    fn make_backup(&self, name: &BackupName, max_files: usize, file: &[u8]) -> anyhow::Result<()> {
         let file_hash = blake3::hash(file);
         let payload = TlsPayload {
             file_size: file.len(),
@@ -44,51 +31,48 @@ impl MakeBackup for TlsServer {
             max_files,
         };
 
-        let payload_string = toml::to_string(&payload)?;
+        let payload_string = toml::to_string(&payload).context("Failed to serialize payload")?;
 
-        let certs = load_certificates(&self.root_ca_path, &self.cert_path, &self.key_path)?;
+        let certs = load_certificates(&self.root_ca_path, &self.cert_path, &self.key_path)
+            .context("Failed to load certificates")?;
 
         let tls_config = ClientConfig::builder()
             .with_root_certificates(certs.root_cert_store)
-            .with_client_auth_cert(certs.certificates, certs.key)?;
+            .with_client_auth_cert(certs.certificates, certs.key)
+            .context("Failed to create client config")?;
 
-        let connector = TlsConnector::from(Arc::new(tls_config));
+        let mut socket = TcpStream::connect((self.socket_address.clone(), self.socket_port))
+            .context("Failed to connect to tcp socket")?;
 
-        let domain = ServerName::try_from(self.socket_address.clone())?;
+        let server_name = self
+            .socket_address
+            .clone()
+            .try_into()
+            .context("Failed to parse server name")?;
 
-        let stream = TcpStream::connect((self.socket_address.clone(), self.socket_port)).await?;
-        let mut stream = connector.connect(domain, stream).await?;
+        let mut client = ClientConnection::new(Arc::new(tls_config), server_name)
+            .context("Failed to create client conneciton")?;
 
-        loop {
-            stream
-                .write_all(&payload_string.len().to_be_bytes())
-                .await?;
-            stream.flush().await?;
-            stream.write_all(payload_string.as_bytes()).await?;
-            stream.flush().await?;
-            stream.write_all(file).await?;
+        let mut stream = Stream::new(&mut client, &mut socket);
 
-            let mut response: Vec<u8> = vec![0; 4];
-            stream.read_exact(&mut response).await?;
-            if response == b"exit" {
-                break;
-            }
-        }
+        stream
+            .write_all(&payload_string.len().to_be_bytes())
+            .context("Failed to write payload length")?;
+        stream.flush().context("Failed to flush stream")?;
+
+        stream
+            .write_all(payload_string.as_bytes())
+            .context("Failed to write payload")?;
+        stream.flush().context("Failed to flush stream")?;
+
+        stream.write_all(file).context("Failed to write file")?;
+        stream.flush().context("Failed to flush stream")?;
+
+        stream
+            .conn
+            .complete_io(stream.sock)
+            .context("Failed to complete io")?;
 
         Ok(())
     }
-}
-
-#[derive(Debug, Error)]
-pub enum MakeBackupError {
-    #[error("LoadCertsError: {0}")]
-    LoadCerts(#[from] LoadCertsError),
-    #[error("TlsConfigError:\n{0}")]
-    TlsConfig(#[from] rustls::Error),
-    #[error("IoError:\n{0}")]
-    IoError(#[from] io::Error),
-    #[error("ServerNameError:\n{0}")]
-    ServerName(#[from] InvalidDnsNameError),
-    #[error("SerializePayloadError:\n{0}")]
-    SerializePayload(#[from] toml::ser::Error),
 }

@@ -1,16 +1,14 @@
 mod history_items;
 
 use std::{
-    fs::File,
-    io::{self, Read},
+    fs::{self, File},
+    io::Read,
     path::PathBuf,
     time::SystemTime,
 };
 
-use log::error;
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
-use tokio::fs;
 
 use crate::scheduler_config::BackupName;
 
@@ -24,14 +22,14 @@ pub struct History {
 }
 
 impl History {
-    pub fn init() -> Result<Self, InitError> {
+    pub fn init() -> anyhow::Result<Self> {
         let path = PathBuf::from(HISTORY_PATH);
         if path.exists() {
-            let mut file = File::open(path).map_err(InitError::OpenFile)?;
+            let mut file = File::open(path).context("Failed to open file")?;
             let mut contents = String::new();
-            File::read_to_string(&mut file, &mut contents).map_err(InitError::ReadFile)?;
+            File::read_to_string(&mut file, &mut contents).context("Failed to read file")?;
 
-            let history: Self = toml::from_str(&contents)?;
+            let history: Self = toml::from_str(&contents).context("Failed to parse file")?;
 
             Ok(history)
         } else {
@@ -48,7 +46,7 @@ impl History {
         return SystemTime::UNIX_EPOCH;
     }
 
-    pub async fn update(&mut self, name: &BackupName) -> Result<(), SaveError> {
+    pub fn update(&mut self, name: &BackupName) -> anyhow::Result<()> {
         let mut found = false;
         for endpoint in self.endpoints.iter_mut() {
             if endpoint.endpoint_name == name.endpoint_name {
@@ -63,30 +61,12 @@ impl History {
             self.endpoints.push(endpoint);
         }
 
-        Ok(self.save().await?)
+        Ok(self.save().context("Failed to save history")?)
     }
 
-    async fn save(&self) -> Result<(), SaveError> {
+    fn save(&self) -> anyhow::Result<()> {
         let contents = toml::to_string(self)?;
-        fs::write(PathBuf::from(HISTORY_PATH), contents).await?;
+        fs::write(PathBuf::from(HISTORY_PATH), contents).context("Failed to write history")?;
         Ok(())
     }
-}
-
-#[derive(Debug, Error)]
-pub enum InitError {
-    #[error("OpenFileError:\n{0}")]
-    OpenFile(#[source] io::Error),
-    #[error("ReadFileError:\n{0}")]
-    ReadFile(#[source] io::Error),
-    #[error("DeserializeError:\n{0}")]
-    Deserialize(#[from] toml::de::Error),
-}
-
-#[derive(Debug, Error)]
-pub enum SaveError {
-    #[error("WriteError:\n{0}")]
-    Write(#[from] io::Error),
-    #[error("SerializeError:\n{0}")]
-    Serialize(#[from] toml::ser::Error),
 }

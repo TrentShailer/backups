@@ -1,4 +1,8 @@
-use std::{fs::File, io::BufReader, path::Path};
+use std::{
+    fs::File,
+    io::{self, BufReader},
+    path::Path,
+};
 
 use blake3::Hash;
 use rustls::RootCertStore;
@@ -27,20 +31,24 @@ pub fn load_certificates(
     root_ca_path: &Path,
     certificate_path: &Path,
     key_path: &Path,
-) -> Result<Certificates, LoadCertsError> {
+) -> Result<Certificates, Error> {
     // Cert
-    let cert_file = File::open(certificate_path)?;
-    let certificates: Vec<CertificateDer<'_>> =
-        certs(&mut BufReader::new(cert_file)).collect::<std::io::Result<_>>()?;
+    let cert_file = File::open(certificate_path).map_err(Error::Certificate)?;
+    let certificates: Vec<CertificateDer<'_>> = certs(&mut BufReader::new(cert_file))
+        .collect::<std::io::Result<_>>()
+        .map_err(Error::Certificate)?;
 
     // Key
-    let key_file = File::open(key_path)?;
-    let key = private_key(&mut BufReader::new(key_file))?.unwrap();
+    let key_file = File::open(key_path).map_err(Error::Key)?;
+    let key = private_key(&mut BufReader::new(key_file))
+        .map_err(Error::Key)?
+        .unwrap();
 
     // Root CA
-    let root_ca_file = File::open(root_ca_path)?;
-    let root_certs: Vec<CertificateDer<'_>> =
-        certs(&mut BufReader::new(root_ca_file)).collect::<std::io::Result<_>>()?;
+    let root_ca_file = File::open(root_ca_path).map_err(Error::Roots)?;
+    let root_certs: Vec<CertificateDer<'_>> = certs(&mut BufReader::new(root_ca_file))
+        .collect::<std::io::Result<_>>()
+        .map_err(Error::Roots)?;
 
     let mut root_cert_store = RootCertStore::empty();
     for cert in root_certs {
@@ -55,9 +63,13 @@ pub fn load_certificates(
 }
 
 #[derive(Debug, Error)]
-pub enum LoadCertsError {
-    #[error("IoError:\n{0}")]
-    Io(#[from] std::io::Error),
-    #[error("RootStoreError:\n{0}")]
+pub enum Error {
+    #[error("CertificateError: {0}")]
+    Certificate(#[source] io::Error),
+    #[error("KeyError: {0}")]
+    Key(#[source] io::Error),
+    #[error("RootsError: {0}")]
+    Roots(#[source] io::Error),
+    #[error("RootStoreError: {0}")]
     RootStore(#[from] rustls::Error),
 }

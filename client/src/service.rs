@@ -1,34 +1,26 @@
+use anyhow::Context;
 use serde::{Deserialize, Serialize};
-use thiserror::Error;
 
 use self::docker_postgres::DockerPostgres;
 
 mod docker_postgres;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum ServiceConfig {
+pub enum Service {
     DockerPostgres(DockerPostgres),
 }
 
-impl GetFile for ServiceConfig {
-    type Error = GetFileError;
-
-    async fn get_file(&self) -> Result<Vec<u8>, Self::Error> {
+impl GetFile for Service {
+    fn get_file(&self) -> anyhow::Result<Vec<u8>> {
         let file = match self {
-            ServiceConfig::DockerPostgres(c) => c.get_file().await?,
+            Service::DockerPostgres(c) => {
+                c.get_file().context("Failed to get DockerPostgres file")?
+            }
         };
         Ok(file)
     }
 }
 
-#[derive(Debug, Error)]
-#[non_exhaustive]
-pub enum GetFileError {
-    #[error(transparent)]
-    DockerPostgres(#[from] docker_postgres::GetFileError),
-}
-
 pub trait GetFile {
-    type Error;
-    async fn get_file(&self) -> Result<Vec<u8>, Self::Error>;
+    fn get_file(&self) -> anyhow::Result<Vec<u8>>;
 }
