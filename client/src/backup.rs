@@ -9,7 +9,7 @@ use crate::scheduler_config::BackupName;
 use crate::service::{GetFile, Service};
 
 pub struct Backup<'a> {
-    pub endpoint: Arc<Endpoint>,
+    pub endpoint: &'a Endpoint,
     pub service: &'a Service,
     pub name: BackupName,
     pub interval: Duration,
@@ -18,7 +18,7 @@ pub struct Backup<'a> {
 
 impl<'a> Backup<'a> {
     pub fn new(
-        endpoint: Arc<Endpoint>,
+        endpoint: &'a Endpoint,
         service: &'a Service,
         name: BackupName,
         interval: Duration,

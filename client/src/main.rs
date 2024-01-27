@@ -5,16 +5,15 @@ mod logger;
 mod scheduler_config;
 mod service;
 
-use std::{fs, sync::Arc, thread::sleep, time::Duration};
+use std::{fs, thread::sleep, time::Duration};
 
 use crate::{history::History, scheduler_config::SchedulerConfig};
 
 use anyhow::Context;
 use backup::Backup;
-use endpoint::Endpoint;
 use log::error;
 use owo_colors::OwoColorize;
-use scheduler_config::{BackupName, SchedulerService};
+use scheduler_config::BackupName;
 
 const CONFIG_PATH: &str = "./config.toml";
 
@@ -36,17 +35,13 @@ fn client() -> anyhow::Result<()> {
 
     let mut backups: Vec<Backup> = Vec::new();
 
-    let endpoints: Box<[Arc<Endpoint>]> = config.endpoints.into_iter().map(Arc::new).collect();
-    let services: Box<[Arc<SchedulerService>]> =
-        config.services.into_iter().map(Arc::new).collect();
-
-    for endpoint in endpoints.iter() {
-        for service in services.iter() {
+    for endpoint in config.endpoints.iter() {
+        for service in config.services.iter() {
             for backup in service.backups.iter() {
                 let name =
                     BackupName::new(endpoint.name(), &service.service_name, &backup.backup_name);
 
-                let endpoint = Arc::clone(endpoint);
+                let endpoint = &endpoint;
                 let service = &service.config;
 
                 backups.push(Backup::new(
