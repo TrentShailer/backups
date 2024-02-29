@@ -26,7 +26,7 @@ pub fn init_fern() -> Result<(), fern::InitError> {
                 message = message,
             ))
         })
-        .level(log::LevelFilter::Info)
+        .level(log::LevelFilter::Debug)
         .chain(std::io::stdout())
         .chain(fern::DateBased::new("logs/", "%F.log.ansi"))
         .apply()?;

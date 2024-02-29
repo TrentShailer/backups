@@ -66,6 +66,8 @@ fn client() -> anyhow::Result<()> {
             };
         }
 
+        log::debug!("Started Sleeping");
         sleep(Duration::from_secs(60 * 5));
+        log::debug!("Finished Sleeping");
     }
 }
