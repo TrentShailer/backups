@@ -17,3 +17,6 @@ toml = "0.8.8"
 error-trace = { git = "https://github.com/TrentShailer/error-trace-rs" }
 
 shared = { path = "shared" }
+
+[profile.release]
+strip = true

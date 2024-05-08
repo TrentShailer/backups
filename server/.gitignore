@@ -6,3 +6,4 @@ config.toml
 /logs
 backups-server.exe
 *.mem
+blocklist.toml

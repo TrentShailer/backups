@@ -15,6 +15,3 @@ rustls-pki-types = { workspace = true }
 serde = { workspace = true }
 shared = { workspace = true }
 toml = { workspace = true }
-
-[profile.release]
-strip = true
