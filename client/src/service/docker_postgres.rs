@@ -1,6 +1,6 @@
 use std::process::Command;
 
-use anyhow::{bail, Context};
+use error_trace::{ErrorTrace, ResultExt};
 use serde::{Deserialize, Serialize};
 
 use super::GetFile;
@@ -13,7 +13,7 @@ pub struct DockerPostgres {
 }
 
 impl GetFile for DockerPostgres {
-    fn get_file(&self) -> anyhow::Result<Vec<u8>> {
+    fn get_file(&self) -> Result<Vec<u8>, ErrorTrace> {
         let output = Command::new("docker")
             .args(&[
                 "exec",
@@ -25,11 +25,11 @@ impl GetFile for DockerPostgres {
                 &self.postgres_database,
             ])
             .output()
-            .context("Failed to run command")?;
+            .context("Run command")?;
 
         if !output.status.success() {
             let error = String::from_utf8_lossy(&output.stderr).to_string();
-            bail!(error);
+            return Err(error).context("Command failed");
         }
 
         Ok(output.stdout)

@@ -1,4 +1,4 @@
-use anyhow::Context;
+use error_trace::{ErrorTrace, ResultExt};
 use serde::{Deserialize, Serialize};
 
 use self::docker_postgres::DockerPostgres;
@@ -11,16 +11,14 @@ pub enum Service {
 }
 
 impl GetFile for Service {
-    fn get_file(&self) -> anyhow::Result<Vec<u8>> {
+    fn get_file(&self) -> Result<Vec<u8>, ErrorTrace> {
         let file = match self {
-            Service::DockerPostgres(c) => {
-                c.get_file().context("Failed to get DockerPostgres file")?
-            }
+            Service::DockerPostgres(c) => c.get_file().context("Get DockerPostgres file")?,
         };
         Ok(file)
     }
 }
 
 pub trait GetFile {
-    fn get_file(&self) -> anyhow::Result<Vec<u8>>;
+    fn get_file(&self) -> Result<Vec<u8>, ErrorTrace>;
 }

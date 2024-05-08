@@ -5,3 +5,4 @@ history.toml
 /logs
 config.toml
 *.mem
+backup_history.toml

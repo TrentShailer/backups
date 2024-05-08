@@ -1,22 +1,21 @@
 [package]
 name = "backups-server"
-version = "4.0.0"
+version = "4.1.0"
 edition = "2021"
 
 [dependencies]
-anyhow = "1.0.79"
-blake3 = { version = "1.5.0", features = ["serde"] }
-chrono = "0.4.31"
-fern = { version = "0.6.2", features = ["date-based"] }
-log = "0.4.20"
+blake3 = { workspace = true }
+chrono = { workspace = true }
+error-trace = { workspace = true }
+fern = { workspace = true }
+log = { workspace = true }
 notify-rust = "4.10.0"
-owo-colors = "4.0.0"
-rustls = "0.22.2"
-rustls-pemfile = "2.0.0"
-rustls-pki-types = "1.0.0"
-serde = { version = "1.0.193", features = ["derive"] }
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+rustls-pki-types = { workspace = true }
+serde = { workspace = true }
 shared = { path = "../shared" }
-toml = "0.8.8"
+toml = { workspace = true }
 
 [profile.release]
 strip = true

@@ -7,7 +7,7 @@ use std::{
     time::SystemTime,
 };
 
-use anyhow::Context;
+use error_trace::{ErrorTrace, ResultExt};
 use serde::{Deserialize, Serialize};
 
 use crate::scheduler_config::BackupName;
@@ -22,14 +22,14 @@ pub struct History {
 }
 
 impl History {
-    pub fn init() -> anyhow::Result<Self> {
+    pub fn init() -> Result<Self, ErrorTrace> {
         let path = PathBuf::from(HISTORY_PATH);
         if path.exists() {
-            let mut file = File::open(path).context("Failed to open file")?;
+            let mut file = File::open(path).context("Open file")?;
             let mut contents = String::new();
-            File::read_to_string(&mut file, &mut contents).context("Failed to read file")?;
+            File::read_to_string(&mut file, &mut contents).context("Read file")?;
 
-            let history: Self = toml::from_str(&contents).context("Failed to parse file")?;
+            let history: Self = toml::from_str(&contents).context("Parse file")?;
 
             Ok(history)
         } else {
@@ -46,7 +46,7 @@ impl History {
         return SystemTime::UNIX_EPOCH;
     }
 
-    pub fn update(&mut self, name: &BackupName) -> anyhow::Result<()> {
+    pub fn update(&mut self, name: &BackupName) -> Result<(), ErrorTrace> {
         let mut found = false;
         for endpoint in self.endpoints.iter_mut() {
             if endpoint.endpoint_name == name.endpoint_name {
@@ -61,12 +61,12 @@ impl History {
             self.endpoints.push(endpoint);
         }
 
-        Ok(self.save().context("Failed to save history")?)
+        Ok(self.save().context("Save history")?)
     }
 
-    fn save(&self) -> anyhow::Result<()> {
-        let contents = toml::to_string(self)?;
-        fs::write(PathBuf::from(HISTORY_PATH), contents).context("Failed to write history")?;
+    fn save(&self) -> Result<(), ErrorTrace> {
+        let contents = toml::to_string(self).track()?;
+        fs::write(PathBuf::from(HISTORY_PATH), contents).track()?;
         Ok(())
     }
 }

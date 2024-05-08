@@ -1,4 +1,4 @@
-use anyhow::Context;
+use error_trace::{ErrorTrace, ResultExt};
 use serde::{Deserialize, Serialize};
 
 use crate::scheduler_config::BackupName;
@@ -21,16 +21,26 @@ impl Endpoint {
 }
 
 impl MakeBackup for Endpoint {
-    fn make_backup(&self, name: &BackupName, max_files: usize, file: &[u8]) -> anyhow::Result<()> {
+    fn make_backup(
+        &self,
+        name: &BackupName,
+        max_files: usize,
+        file: &[u8],
+    ) -> Result<(), ErrorTrace> {
         match self {
             Endpoint::TlsServer(e) => e
                 .make_backup(name, max_files, file)
-                .context("Failed to make TlsServer backup")?,
+                .context("TlsServer backup")?,
         }
         Ok(())
     }
 }
 
 pub trait MakeBackup {
-    fn make_backup(&self, name: &BackupName, max_files: usize, file: &[u8]) -> anyhow::Result<()>;
+    fn make_backup(
+        &self,
+        name: &BackupName,
+        max_files: usize,
+        file: &[u8],
+    ) -> Result<(), ErrorTrace>;
 }

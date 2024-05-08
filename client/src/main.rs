@@ -9,10 +9,9 @@ use std::{fs, thread::sleep, time::Duration};
 
 use crate::{history::History, scheduler_config::SchedulerConfig};
 
-use anyhow::Context;
 use backup::Backup;
-use log::error;
-use owo_colors::OwoColorize;
+use error_trace::{ErrorTrace, ResultExt};
+use log::{error, info};
 use scheduler_config::BackupName;
 
 const CONFIG_PATH: &str = "./config.toml";
@@ -20,18 +19,15 @@ const CONFIG_PATH: &str = "./config.toml";
 fn main() {
     logger::init_fern().unwrap();
 
-    if let Err(e) = client() {
-        error!("{:?}", e);
+    if let Err(e) = client().track() {
+        error!("{}", e.to_string());
     }
 }
 
-fn client() -> anyhow::Result<()> {
-    let config_contents = fs::read_to_string(CONFIG_PATH).context("Failed to read config")?;
-
-    let config: SchedulerConfig =
-        toml::from_str(&config_contents).context("Failed to parse config")?;
-
-    let mut history = History::init().context("Failed to load history")?;
+fn client() -> Result<(), ErrorTrace> {
+    let config_contents = fs::read_to_string(CONFIG_PATH).context("Read config")?;
+    let config: SchedulerConfig = toml::from_str(&config_contents).context("Parse config")?;
+    let mut history = History::init().context("Load history")?;
 
     let mut backups: Vec<Backup> = Vec::new();
 
@@ -55,19 +51,23 @@ fn client() -> anyhow::Result<()> {
         }
     }
 
-    println!("{}", backups.len());
-
     loop {
         for backup in backups.iter() {
-            if let Err(e) = backup.maybe_make_backup(&mut history).with_context(|| {
-                format!("[{}] Failed to make backup", backup.name.to_string().red())
-            }) {
-                error!("{:?}", e);
-            };
+            match backup
+                .maybe_make_backup(&mut history)
+                .with_context(|| format!("Make backup {}", backup.name.to_string()))
+            {
+                Ok(made_backup) => {
+                    if made_backup {
+                        info!("Made backup {}", backup.name.to_string())
+                    }
+                }
+                Err(e) => {
+                    error!("{}", e.to_string());
+                }
+            }
         }
 
-        log::debug!("Started Sleeping");
         sleep(Duration::from_secs(60 * 5));
-        log::debug!("Finished Sleeping");
     }
 }

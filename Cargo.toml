@@ -1,0 +1,19 @@
+[workspace]
+resolver = "2"
+members = ["client", "server", "shared"]
+
+[workspace.dependencies]
+anyhow = "1.0.79"
+blake3 = { version = "1.5.0", features = ["serde"] }
+chrono = "0.4.31"
+fern = { version = "0.6.2", features = ["date-based"] }
+log = "0.4.20"
+rustls = "0.22.4"
+rustls-pemfile = "2.0.0"
+rustls-pki-types = "1.1.0"
+serde = { version = "1.0.193", features = ["derive"] }
+toml = "0.8.8"
+
+error-trace = { git = "https://github.com/TrentShailer/error-trace-rs" }
+
+shared = { path = "shared" }

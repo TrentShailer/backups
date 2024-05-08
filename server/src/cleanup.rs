@@ -1,26 +1,26 @@
 use std::{fs, path::PathBuf, time::SystemTime};
 
-use anyhow::Context;
+use error_trace::{ErrorTrace, ResultExt};
 
 use crate::BACKUP_PATH;
 
-pub fn cleanup(service_name: &str, backup_name: &str, max_files: usize) -> anyhow::Result<()> {
+pub fn cleanup(service_name: &str, backup_name: &str, max_files: usize) -> Result<(), ErrorTrace> {
     let path = PathBuf::from(BACKUP_PATH)
         .join(service_name)
         .join(backup_name);
 
-    let mut entries = fs::read_dir(path).context("Filaed to read backup dir")?;
+    let mut entries = fs::read_dir(path).track()?;
     let mut files: Vec<(SystemTime, PathBuf)> = Vec::new();
 
     while let Some(entry) = entries.next() {
-        let entry = entry.context("Failed to get entry")?;
-        let metadata = entry.metadata().context("Failed to get metadata")?;
+        let entry = entry.track()?;
+        let metadata = entry.metadata().track()?;
 
         if !metadata.is_file() {
             continue;
         }
 
-        let created = metadata.created().context("Unsupported creation time")?;
+        let created = metadata.created().track()?;
 
         files.push((created, entry.path()));
     }
@@ -36,7 +36,7 @@ pub fn cleanup(service_name: &str, backup_name: &str, max_files: usize) -> anyho
     for _ in 0..files_to_delete {
         let file = files.pop().unwrap();
 
-        fs::remove_file(file.1).context("Failed to delete file")?;
+        fs::remove_file(file.1).track()?;
     }
 
     Ok(())
