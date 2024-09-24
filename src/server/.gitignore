@@ -1,9 +1,6 @@
-/target
-.env
 /ssl
 /backups
 config.toml
 /logs
 backups-server.exe
-*.mem
-blocklist.toml
+ip_list.toml

@@ -1,18 +1,17 @@
 [package]
-name = "backups-server"
-version = "4.1.0"
+name = "backups-client"
+version = "5.0.0"
 edition = "2021"
 
 [dependencies]
-blake3 = { workspace = true }
+shared = { workspace = true }
+
 chrono = { workspace = true }
-error-trace = { workspace = true }
 fern = { workspace = true }
 log = { workspace = true }
-notify-rust = "4.10.0"
 rustls = { workspace = true }
 rustls-pemfile = { workspace = true }
 rustls-pki-types = { workspace = true }
 serde = { workspace = true }
-shared = { path = "../shared" }
 toml = { workspace = true }
+thiserror = { workspace = true }
