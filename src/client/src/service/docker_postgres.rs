@@ -27,6 +27,7 @@ impl DockerPostgres {
                 &self.postgres_username,
                 "-d",
                 &self.postgres_database,
+                "-a",
             ])
             .output()
             .map_err(Error::RunCommand)?;
