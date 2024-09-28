@@ -37,6 +37,17 @@ impl ServerConfig {
 
         Ok(config)
     }
+
+    #[cfg(test)]
+    pub fn blank() -> Self {
+        let addr: SocketAddr = "127.0.0.1:8080".parse().unwrap();
+        Self {
+            socket_address: addr,
+            root_ca_path: PathBuf::new(),
+            certificate_path: PathBuf::new(),
+            key_path: PathBuf::new(),
+        }
+    }
 }
 
 #[derive(Debug, Error)]

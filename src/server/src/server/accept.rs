@@ -44,6 +44,12 @@ impl Server {
             }
         };
 
+        // Complete handshake with client to ensure authentication
+        if let Err(e) = connection.complete_io(&mut stream) {
+            self.ip_list.block_untrusted(peer.ip())?;
+            return Err(Error::CompleteHandshake(e));
+        };
+
         let mut stream = Stream::new(&mut connection, &mut stream);
 
         info!("Client connected: {}", peer);
@@ -102,6 +108,9 @@ pub enum Error {
 
     #[error("Failed to read TLS hello:\n{0}")]
     ReadHelloTls(#[source] io::Error),
+
+    #[error("Failed to complete handshake:\n{0}")]
+    CompleteHandshake(#[source] io::Error),
 
     #[error("Failed to write TLS hello alert:\n{0}")]
     WriteAlert(#[source] io::Error),

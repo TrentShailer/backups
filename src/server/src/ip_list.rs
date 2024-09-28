@@ -1,4 +1,8 @@
-use std::{fs, net::IpAddr, path::Path};
+use std::{
+    fs,
+    net::IpAddr,
+    path::{Path, PathBuf},
+};
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -13,6 +17,9 @@ pub struct IpList {
 
     /// List of trusted IPs
     trusted_ips: Vec<IpAddr>,
+
+    /// Path to ip list file
+    file_path: Option<PathBuf>,
 }
 
 impl IpList {
@@ -23,6 +30,7 @@ impl IpList {
             let ip_list = Self {
                 blocked_ips: vec![],
                 trusted_ips: vec![],
+                file_path: Some(PathBuf::from(IP_LIST_PATH)),
             };
 
             ip_list.save()?;
@@ -34,6 +42,16 @@ impl IpList {
         let ip_list = toml::from_str(&contents)?;
 
         Ok(ip_list)
+    }
+
+    #[cfg(test)]
+    /// Creates a new unbacked ip list, does not support saving or loading.
+    pub fn new_unbacked() -> Self {
+        Self {
+            blocked_ips: vec![],
+            trusted_ips: vec![],
+            file_path: None,
+        }
     }
 
     /// Adds the ip to the block list if it isn't trusted.
@@ -74,8 +92,12 @@ impl IpList {
 
     /// Serializes and saves the lists to the file.
     fn save(&self) -> Result<(), Error> {
+        let Some(file_path) = self.file_path.as_ref() else {
+            return Ok(());
+        };
+
         let contents = toml::to_string_pretty(self)?;
-        fs::write(IP_LIST_PATH, contents).map_err(Error::Write)?;
+        fs::write(file_path, contents).map_err(Error::Write)?;
         Ok(())
     }
 }

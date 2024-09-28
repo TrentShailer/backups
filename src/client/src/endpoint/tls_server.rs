@@ -61,6 +61,11 @@ impl TlsServer {
         let mut client =
             ClientConnection::new(Arc::new(tls_config), server_name).map_err(Error::Connection)?;
 
+        // Complete handshake with server to ensure authentication
+        client
+            .complete_io(&mut socket)
+            .map_err(Error::CompleteHandshake)?;
+
         let mut stream = Stream::new(&mut client, &mut socket);
 
         // Write metadata hint then metadata
@@ -126,6 +131,9 @@ pub enum Error {
 
     #[error("Failed to make TCP connection:\n{0}")]
     ConnectTcp(#[source] io::Error),
+
+    #[error("Failed to complete handshake:\n{0}")]
+    CompleteHandshake(#[source] io::Error),
 
     #[error("Failed to make server name:\n{0}")]
     InvalidDnsName(#[from] InvalidDnsNameError),
