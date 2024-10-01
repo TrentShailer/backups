@@ -98,9 +98,9 @@ pub enum Error {
     #[error("Failed to deserialize history:\n{0}")]
     Deserialize(#[from] toml::de::Error),
 
-    #[error("Failed to write history")]
+    #[error("Failed to write history:\n{0}")]
     Write(#[source] io::Error),
 
-    #[error("Failed to read history")]
+    #[error("Failed to read history:\n{0}")]
     Read(#[source] io::Error),
 }
