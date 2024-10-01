@@ -19,12 +19,17 @@ impl Server {
     pub(super) fn handle_connection(
         stream: &mut Stream<'_, ServerConnection, TcpStream>,
     ) -> Result<(), Error> {
+        // Enforce 64-bit usize to make conversions between u64 and usize safe
+        if usize::BITS != 64 {
+            panic!("usize is not 64-bits");
+        }
+
         // Read metadata size hint
         let mut metdata_size = [0u8; 8];
         stream
             .read_exact(&mut metdata_size)
             .map_err(Error::ReadMetadataHint)?;
-        let metadata_size = usize::from_be_bytes(metdata_size);
+        let metadata_size = u64::from_be_bytes(metdata_size) as usize;
 
         // Read metadata
         let mut metadata_buffer = vec![0; metadata_size];
@@ -59,10 +64,11 @@ impl Server {
 
         // Setup 1 KiB buffer for reading
         let mut file_buffer = [0u8; 1024];
-        let mut total_bytes_read = 0;
+        let mut total_bytes_read: usize = 0;
+        let backup_size = metadata.backup_size as usize;
 
         // Read the payload in chunks and append the chunks to the output file.
-        while total_bytes_read < metadata.backup_size {
+        while total_bytes_read < backup_size {
             let bytes_read = stream
                 .read(&mut file_buffer[..])
                 .map_err(Error::ReadPayload)?;

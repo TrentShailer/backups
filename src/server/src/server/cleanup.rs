@@ -10,6 +10,13 @@ use super::Server;
 impl Server {
     /// Cleans up that backup directory by removing files over the limit.
     pub(super) fn cleanup(metadata: &BackupMetadata) -> Result<(), Error> {
+        // Enforce 64-bit usize to make conversions between u64 and usize safe
+        if usize::BITS != 64 {
+            panic!("usize is not 64-bits");
+        }
+
+        let max_files = metadata.max_files as usize;
+
         let path = PathBuf::from(BACKUP_PATH)
             .join(&metadata.service_name)
             .join(&metadata.backup_name);
@@ -35,12 +42,12 @@ impl Server {
         files.sort_by(|a, b| a.0.cmp(&b.0));
 
         // If we are under the limit, we are fine
-        if files.len() <= metadata.max_files {
+        if files.len() <= max_files {
             return Ok(());
         }
 
         // The number of files over the limit
-        let file_overflow = files.len() - metadata.max_files;
+        let file_overflow = files.len() - max_files;
 
         // Remove the files
         let files_to_delete = &files[..file_overflow];

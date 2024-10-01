@@ -27,7 +27,7 @@ pub struct Backup<'a> {
     pub interval: Duration,
 
     /// The maximum number of files that the endpoint should retain for this backup.
-    pub max_files: usize,
+    pub max_files: u64,
 }
 
 impl<'a> Backup<'a> {

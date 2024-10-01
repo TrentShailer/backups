@@ -31,9 +31,14 @@ impl TlsServer {
         &self,
         service_name: String,
         backup_name: String,
-        max_files: usize,
+        max_files: u64,
         backup_contents: &mut BackupContents,
     ) -> Result<(), Error> {
+        // Enforce 64-bit usize to make conversions between u64 and usize safe
+        if usize::BITS != 64 {
+            panic!("usize is not 64-bits");
+        }
+
         // Construct metadata
         let metadata = BackupMetadata {
             backup_size: backup_contents.backup_size,
@@ -69,8 +74,9 @@ impl TlsServer {
         let mut stream = Stream::new(&mut client, &mut socket);
 
         // Write metadata hint then metadata
+        let metadata_len = metadata_string.len() as u64;
         stream
-            .write_all(&metadata_string.len().to_be_bytes())
+            .write_all(&metadata_len.to_be_bytes())
             .map_err(|e| Error::Write(e, "metadata hint"))?;
 
         stream
@@ -80,8 +86,9 @@ impl TlsServer {
         // Read from reader in 1KiB chunks and write the chunks to the TLS stream.
         let mut read_buffer = [0u8; 1024];
         let mut total_bytes_read = 0;
+        let backup_size = backup_contents.backup_size as usize;
 
-        while total_bytes_read < backup_contents.backup_size {
+        while total_bytes_read < backup_size {
             let bytes_read = backup_contents
                 .reader
                 .read(&mut read_buffer)

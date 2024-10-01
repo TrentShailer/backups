@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct BackupMetadata {
     /// Backup size in bytes.
-    pub backup_size: usize,
+    pub backup_size: u64,
 
     /// The file's name.
     /// May contain filename invalid characters.
@@ -19,5 +19,5 @@ pub struct BackupMetadata {
     pub backup_name: String,
 
     /// The maximum number of files that should exist for that backup type.
-    pub max_files: usize,
+    pub max_files: u64,
 }

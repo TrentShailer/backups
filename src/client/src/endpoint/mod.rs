@@ -19,7 +19,7 @@ impl Endpoint {
         &self,
         service_name: String,
         backup_name: String,
-        max_files: usize,
+        max_files: u64,
         backup_contents: &mut BackupContents,
     ) -> Result<(), Error> {
         match self {

@@ -18,6 +18,11 @@ pub struct DockerPostgres {
 impl DockerPostgres {
     /// Gets the backup from postgres running in docker.
     pub fn get_backup(&self) -> Result<BackupContents, Error> {
+        // Enforce 64-bit usize to make conversions between u64 and usize safe
+        if usize::BITS != 64 {
+            panic!("usize is not 64-bits");
+        }
+
         let output = Command::new("docker")
             .args([
                 "exec",
@@ -38,7 +43,7 @@ impl DockerPostgres {
         }
 
         let contents = output.stdout;
-        let backup_size = contents.len();
+        let backup_size = contents.len() as u64;
         let contents_reader = Cursor::new(contents);
 
         Ok(BackupContents {

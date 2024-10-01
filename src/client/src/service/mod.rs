@@ -12,7 +12,7 @@ mod dummy;
 /// The contents of a backup.
 pub struct BackupContents {
     /// Size of backup in bytes.
-    pub backup_size: usize,
+    pub backup_size: u64,
 
     /// Reader that yields the contents of the backup.
     pub reader: Box<dyn Read>,

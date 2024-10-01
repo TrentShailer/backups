@@ -46,7 +46,7 @@ pub struct BackupIntervals {
     pub interval: u64,
 
     /// The maximum number of files the endpoint should retain of this backup interval.
-    pub max_files: usize,
+    pub max_files: u64,
 }
 
 impl Config {
