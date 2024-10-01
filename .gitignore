@@ -1,1 +1,21 @@
 target
+
+# Ignore config files
+!Cargo.toml
+*.toml
+
+# Ignore logs and backups
+**/logs
+**/backups
+
+# Ignore certificates
+**/ssl
+*.crt
+*.key
+*.pem
+
+# Ignore windows executable
+*.exe
+
+# Ignore live directory
+live
