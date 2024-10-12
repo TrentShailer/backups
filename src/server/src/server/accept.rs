@@ -20,6 +20,8 @@ impl Server {
         // Accept TCP connection
         let (mut stream, peer) = self.listener.accept().map_err(Error::Accept)?;
 
+        log::info!("Peer connected: {}", peer);
+
         // Check blocklist
         if self.ip_list.is_blocked(&peer.ip()) {
             return Ok(());
@@ -52,7 +54,7 @@ impl Server {
 
         let mut stream = Stream::new(&mut connection, &mut stream);
 
-        info!("Client connected: {}", peer);
+        info!("Peer accepted: {}", peer);
 
         let result = Self::handle_connection(&mut stream);
 
