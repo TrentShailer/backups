@@ -19,18 +19,19 @@ pub struct IpList {
     trusted_ips: Vec<IpAddr>,
 
     /// Path to ip list file
+    #[serde(skip)]
     file_path: Option<PathBuf>,
 }
 
 impl IpList {
     /// Tries to load an existing ip list, or create a new one if none exist.
-    pub fn load_or_create() -> Result<Self, Error> {
+    pub fn load_or_create<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         // If file doesn't exist, create new.
-        if !Path::new(IP_LIST_PATH).exists() {
+        if !path.as_ref().exists() {
             let ip_list = Self {
                 blocked_ips: vec![],
                 trusted_ips: vec![],
-                file_path: Some(PathBuf::from(IP_LIST_PATH)),
+                file_path: Some(path.as_ref().to_path_buf()),
             };
 
             ip_list.save()?;
@@ -38,13 +39,13 @@ impl IpList {
         }
 
         // File exists, read and deserialze
-        let contents = fs::read_to_string(IP_LIST_PATH).map_err(Error::Read)?;
+        let contents = fs::read_to_string(path).map_err(Error::Read)?;
         let ip_list = toml::from_str(&contents)?;
 
         Ok(ip_list)
     }
 
-    #[cfg(test)]
+    #[allow(dead_code)]
     /// Creates a new unbacked ip list, does not support saving or loading.
     pub fn new_unbacked() -> Self {
         Self {
@@ -52,6 +53,18 @@ impl IpList {
             trusted_ips: vec![],
             file_path: None,
         }
+    }
+
+    #[allow(dead_code)]
+    /// Returns a reference to the the blocked ips.
+    pub fn get_blocked_ips(&self) -> &[IpAddr] {
+        &self.blocked_ips
+    }
+
+    #[allow(dead_code)]
+    /// Returns a reference to the the trusted ips.
+    pub fn get_trusted_ips(&self) -> &[IpAddr] {
+        &self.trusted_ips
     }
 
     /// Adds the ip to the block list if it isn't trusted.

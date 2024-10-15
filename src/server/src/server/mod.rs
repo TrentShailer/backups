@@ -28,7 +28,7 @@ impl Server {
     pub fn new() -> Result<Self, Error> {
         // Load config from files
         let config = ServerConfig::try_load()?;
-        let ip_list = IpList::load_or_create().map_err(Error::LoadIpList)?;
+        let ip_list = IpList::load_or_create(ip_list::IP_LIST_PATH).map_err(Error::LoadIpList)?;
         let certificates = Certificates::load(
             &config.root_ca_path,
             &config.certificate_path,
