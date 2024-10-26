@@ -3,9 +3,8 @@ resolver = "2"
 members = ["src/*"]
 
 [workspace.dependencies]
-blake3 = { version = "1.5", features = ["serde"] }
 chrono = "0.4"
-fern = { version = "0.6", features = ["date-based"] }
+fern = { version = "0.7", features = ["date-based"] }
 log = "0.4"
 rustls = { version = "0.23", default-features = false, features = [
 	"std",
