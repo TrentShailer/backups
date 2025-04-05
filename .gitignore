@@ -19,3 +19,5 @@ target
 
 # Ignore live directory
 live
+
+logs
