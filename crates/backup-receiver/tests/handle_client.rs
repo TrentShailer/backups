@@ -6,7 +6,7 @@ use std::io::Cursor;
 
 use backup_receiver::ContextLogger;
 use bytemuck::bytes_of;
-use common::test_receiver;
+use common::{check_backup, clear_backups, test_receiver};
 use shared::{Cadance, Metadata, test::init_test_logger};
 
 mod common;
@@ -21,10 +21,11 @@ fn average_client() {
 
     let metadata = Metadata::new(
         512,
-        Metadata::pad_string(b"Test"),
+        Metadata::pad_string(b"metadata-average_client"),
         Cadance::Daily,
         Metadata::pad_string(b"test"),
     );
+    clear_backups(&metadata);
 
     let payload = vec![0u8; 512];
 
@@ -43,6 +44,8 @@ fn average_client() {
     assert!(result.is_ok(), "{:#?}", result);
 
     let returned_metadata = result.unwrap();
-
     assert_eq!(returned_metadata, metadata, "{:#?}", returned_metadata);
+
+    check_backup(&metadata, &payload);
+    clear_backups(&metadata);
 }

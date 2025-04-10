@@ -81,7 +81,7 @@ impl Metadata {
             .service_name
             .iter()
             .position(|byte| *byte == b'\0')
-            .unwrap_or(self.service_name.len() - 1);
+            .unwrap_or(self.service_name.len());
 
         String::from_utf8_lossy(&self.service_name[0..name_end])
     }
@@ -92,7 +92,7 @@ impl Metadata {
             .file_extension
             .iter()
             .position(|byte| *byte == b'\0')
-            .unwrap_or(self.file_extension.len() - 1);
+            .unwrap_or(self.file_extension.len());
 
         String::from_utf8_lossy(&self.file_extension[0..name_end])
     }
