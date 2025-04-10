@@ -1,7 +1,7 @@
 use std::{fs::create_dir_all, io};
 
 use thiserror::Error;
-use tracing::{Level, subscriber::set_global_default};
+use tracing::{Level, error, subscriber::set_global_default};
 use tracing_appender::{
     non_blocking::WorkerGuard,
     rolling::{RollingFileAppender, Rotation},

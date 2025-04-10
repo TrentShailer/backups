@@ -1,8 +1,11 @@
-use core::net::{IpAddr, SocketAddr};
+use core::{
+    net::{IpAddr, SocketAddr},
+    time::Duration,
+};
 use std::{
     collections::HashMap,
-    fs::{self, File, OpenOptions},
-    io::{self, ErrorKind, Read, Write},
+    fs::{self, OpenOptions},
+    io::{self, BufRead, ErrorKind, Write},
     net::{TcpListener, TcpStream},
     sync::Arc,
     time::Instant,
@@ -74,11 +77,11 @@ impl Receiver {
     }
 
     /// Block until a client connects then accept the mTLS connection.
-    pub fn accept_blocking(
+    pub fn accept_client(
         &mut self,
         context: &mut ContextLogger,
     ) -> Result<(ServerConnection, TcpStream, SocketAddr), AcceptError> {
-        context.current_context = "Accept";
+        context.current_context = "Accept Client";
 
         // Accept TCP connection
         let (mut stream, peer) = self.listener.accept().map_err(AcceptError::AcceptTcp)?;
@@ -129,153 +132,164 @@ impl Receiver {
         Ok((connection, stream, peer))
     }
 
-    /// Read the metadata from the stream.
-    pub fn read_metadata(
-        &self,
+    /// Handle a client connection
+    pub fn handle_client<Read: BufRead>(
+        &mut self,
         context: &mut ContextLogger,
-        stream: &mut Stream<'_, ServerConnection, TcpStream>,
+        stream: &mut Read,
+        peer: SocketAddr,
     ) -> Result<Metadata, Response> {
-        context.current_context = "Read Metadata";
+        context.current_context = "Handle Client";
 
-        let mut buffer = [0u8; size_of::<Metadata>()];
+        // Apply rate limit
+        if let Some(history) = self.history.get_mut(&peer.ip()) {
+            history.retain(|backup_time| backup_time.elapsed() < Duration::from_secs(60 * 60));
 
-        // Read the exact expected bytes for metadata.
-        stream.read_exact(&mut buffer).map_err(|e| {
-            if e.kind() == ErrorKind::UnexpectedEof {
-                warn!("{context}Encountered unexpected Eof when reading metadata: {e}");
-                Response::BadData
-            } else {
-                error!("{context}Encountered error when reading metadata: {e}");
-                Response::Error
+            if history.len() >= self.config.limits.maximum_backups_per_hour {
+                warn!("{context}Exceeded rate limit");
+                return Err(Response::ExceededRateLimit);
             }
-        })?;
+        }
 
-        // Try cast the bytes to a Metadata instance.
-        let metadata: Metadata = *checked::try_from_bytes(&buffer).map_err(|e| {
-            warn!("{context}Invalid metadata: {e}");
-            Response::BadData
-        })?;
+        // Read metadata
+        let metadata = {
+            context.current_context = "Read Metadata";
 
-        context.backup = Some((metadata.serivce_name().to_string(), metadata.cadance));
+            let mut buffer = [0u8; size_of::<Metadata>()];
 
-        info!("{context}Received metadata");
+            // Read the exact expected bytes for metadata.
+            if let Err(e) = stream.read_exact(&mut buffer) {
+                match e.kind() {
+                    ErrorKind::UnexpectedEof => {
+                        warn!("{context}Encountered unexpected Eof when reading metadata: {e}");
+                        return Err(Response::BadData);
+                    }
 
-        // Check limits
-        if metadata.backup_bytes > self.config.limits.maximum_payload_bytes {
-            warn!(
-                "{context}Exceeded payload size limit {} > {}",
-                metadata.backup_bytes, self.config.limits.maximum_payload_bytes
+                    _ => {
+                        error!("{context}Encountered error when reading metadata: {e}");
+                        return Err(Response::Error);
+                    }
+                }
+            }
+
+            // Try cast the bytes to a Metadata instance.
+            let metadata: Metadata = *checked::try_from_bytes(&buffer)
+                .inspect_err(|e| warn!("{context}Invalid metadata: {e}"))
+                .map_err(|_| Response::BadData)?;
+
+            context.backup = Some((metadata.serivce_name().to_string(), metadata.cadance));
+            info!("{context}Received metadata");
+
+            // Check limits
+            if metadata.backup_bytes > self.config.limits.maximum_payload_bytes {
+                warn!(
+                    "{context}Exceeded payload size limit {} > {}",
+                    metadata.backup_bytes, self.config.limits.maximum_payload_bytes
+                );
+                return Err(Response::TooLarge);
+            }
+
+            metadata
+        };
+
+        // Prepare backup file
+        let mut file = {
+            context.current_context = "Prepare Backup";
+
+            let backup_directory = metadata.backup_directory();
+
+            // Check if the backup dir exists
+            let directroy_metadata = match fs::metadata(&backup_directory) {
+                Ok(dir_metadata) => Some(dir_metadata),
+                Err(error) => {
+                    if error.kind() == ErrorKind::NotFound {
+                        None
+                    } else {
+                        error!(
+                            "{context}Could not check metadata for {backup_directory:?}: {error}"
+                        );
+                        return Err(Response::Error);
+                    }
+                }
+            };
+
+            match directroy_metadata {
+                // If the backup_dir exists, ensure it is a directory
+                Some(directory_metadata) => {
+                    if !directory_metadata.is_dir() {
+                        error!(
+                            "{context}{backup_directory:?} is not a dir: {directory_metadata:?}"
+                        );
+                        return Err(Response::Error);
+                    }
+                }
+
+                // If it does not exist, create it.
+                None => {
+                    fs::create_dir_all(&backup_directory)
+                        .inspect_err(|e| {
+                            error!("{context}Could not create directory {backup_directory:?}: {e}")
+                        })
+                        .map_err(|_| Response::Error)?;
+                }
+            }
+
+            let file_name = format!(
+                "{}.{}",
+                Utc::now().format("%Y-%m-%d_%H-%M-%S"),
+                metadata.file_extension()
             );
-            return Err(Response::TooLarge);
+            let backup_file_path = backup_directory.join(file_name);
+
+            OpenOptions::new()
+                .write(true)
+                .create(true)
+                .truncate(true)
+                .open(&backup_file_path)
+                .inspect_err(|e| {
+                    error!("{context}Could not create and open file at {backup_file_path:?}: {e}")
+                })
+                .map_err(|_| Response::Error)?
+        };
+
+        // Stream payload into file
+        {
+            context.current_context = "Read Write Payload";
+
+            // Setup 1 KiB buffer for reading
+            let mut file_buffer = [0u8; 1024];
+            let mut total_bytes_read: usize = 0;
+
+            let backup_bytes = metadata.backup_bytes;
+            let backup_bytes = usize::try_from(backup_bytes)
+                .inspect_err(|e| {
+                    error!("{context}Could not cast backup bytes {backup_bytes} to usize: {e}")
+                })
+                .map_err(|_| Response::Error)?;
+
+            // Read the payload in chunks and append the chunks to the output file.
+            while total_bytes_read < backup_bytes {
+                let bytes_read = stream.read(&mut file_buffer[..]).map_err(|e| {
+                    if e.kind() == ErrorKind::UnexpectedEof {
+                        warn!("{context}Encountered unexpected Eof when reading payload: {e}");
+                        Response::BadData
+                    } else {
+                        error!("{context}Encountered error when reading payload: {e}");
+                        Response::Error
+                    }
+                })?;
+
+                file.write_all(&file_buffer[..bytes_read])
+                    .inspect_err(|e| {
+                        error!("{context}Encountered error when writing to backup file: {e}")
+                    })
+                    .map_err(|_| Response::Error)?;
+
+                total_bytes_read += bytes_read;
+            }
         }
 
         Ok(metadata)
-    }
-
-    /// Prepare the backup directory and open the backup file.
-    pub fn prepare_backup_file(
-        &self,
-        context: &mut ContextLogger,
-        metadata: &Metadata,
-    ) -> Result<File, Response> {
-        context.current_context = "Prepare Backup";
-
-        let backup_directory = metadata.backup_directory();
-
-        // Create backup directory if it doesn't exist
-
-        // Check if the backup dir exists
-        let directroy_metadata = match fs::metadata(&backup_directory) {
-            Ok(dir_metadata) => Some(dir_metadata),
-            Err(error) => {
-                if error.kind() == ErrorKind::NotFound {
-                    None
-                } else {
-                    error!("{context}Could not check metadata for {backup_directory:?}: {error}");
-                    return Err(Response::Error);
-                }
-            }
-        };
-
-        match directroy_metadata {
-            // If the backup_dir exists, ensure it is a directory
-            Some(directory_metadata) => {
-                if !directory_metadata.is_dir() {
-                    error!("{context}{backup_directory:?} is not a dir: {directory_metadata:?}");
-                    return Err(Response::Error);
-                }
-            }
-
-            // If it does not exist, create it.
-            None => {
-                fs::create_dir_all(&backup_directory).map_err(|e| {
-                    error!("{context}Could not create directory {backup_directory:?}: {e}");
-                    Response::Error
-                })?;
-            }
-        }
-
-        let file_name = format!(
-            "{}.{}",
-            Utc::now().format("%Y-%m-%d_%H-%M-%S"),
-            metadata.file_exteion()
-        );
-        let backup_file_path = backup_directory.join(file_name);
-
-        let file = OpenOptions::new()
-            .write(true)
-            .create(true)
-            .truncate(true)
-            .open(&backup_file_path)
-            .map_err(|e| {
-                error!("{context}Could not create and open file at {backup_file_path:?}: {e}");
-                Response::Error
-            })?;
-
-        Ok(file)
-    }
-
-    /// Read the payload from the stream and write it to the file.
-    pub fn read_and_write_payload(
-        &self,
-        context: &mut ContextLogger,
-        stream: &mut Stream<'_, ServerConnection, TcpStream>,
-        metadata: &Metadata,
-        file: &mut File,
-    ) -> Result<(), Response> {
-        context.current_context = "Read Write Payload";
-
-        // Setup 1 KiB buffer for reading
-        let mut file_buffer = [0u8; 1024];
-        let mut total_bytes_read: usize = 0;
-
-        let backup_bytes = metadata.backup_bytes;
-        let backup_bytes = usize::try_from(backup_bytes).map_err(|e| {
-            error!("{context}Could not cast backup bytes {backup_bytes} to usize: {e}");
-            Response::Error
-        })?;
-
-        // Read the payload in chunks and append the chunks to the output file.
-        while total_bytes_read < backup_bytes {
-            let bytes_read = stream.read(&mut file_buffer[..]).map_err(|e| {
-                if e.kind() == ErrorKind::UnexpectedEof {
-                    warn!("{context}Encountered unexpected Eof when reading payload: {e}");
-                    Response::BadData
-                } else {
-                    error!("{context}Encountered error when reading payload: {e}");
-                    Response::Error
-                }
-            })?;
-
-            file.write_all(&file_buffer[..bytes_read]).map_err(|e| {
-                error!("{context}Encountered error when writing to backup file: {e}");
-                Response::Error
-            })?;
-
-            total_bytes_read += bytes_read;
-        }
-
-        Ok(())
     }
 
     /// Send a response to the sender and close the connection.

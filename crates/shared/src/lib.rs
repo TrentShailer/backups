@@ -9,6 +9,8 @@ mod certificates;
 mod logger;
 mod metadata;
 mod response;
+#[cfg(feature = "test")]
+pub mod test;
 
 pub use cadance::Cadance;
 pub use certificates::{CertificateError, Certificates};

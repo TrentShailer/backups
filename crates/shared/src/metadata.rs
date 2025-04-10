@@ -6,7 +6,7 @@ use crate::Cadance;
 
 /// Metadata containing information about the backup payload.
 #[repr(C)]
-#[derive(Clone, Copy, Debug, NoUninit)]
+#[derive(Clone, Copy, Debug, NoUninit, PartialEq, Eq)]
 pub struct Metadata {
     /// Backup size in bytes.
     pub backup_bytes: u64,
@@ -83,18 +83,18 @@ impl Metadata {
             .position(|byte| *byte == b'\0')
             .unwrap_or(self.service_name.len() - 1);
 
-        String::from_utf8_lossy(&self.service_name[0..=name_end])
+        String::from_utf8_lossy(&self.service_name[0..name_end])
     }
 
     /// The backup's file extension.
-    pub fn file_exteion(&self) -> Cow<'_, str> {
+    pub fn file_extension(&self) -> Cow<'_, str> {
         let name_end = self
             .file_extension
             .iter()
             .position(|byte| *byte == b'\0')
             .unwrap_or(self.file_extension.len() - 1);
 
-        String::from_utf8_lossy(&self.file_extension[0..=name_end])
+        String::from_utf8_lossy(&self.file_extension[0..name_end])
     }
 
     /// Pads or truncates a byte slice to a specified length.
