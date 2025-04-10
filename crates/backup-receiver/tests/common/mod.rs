@@ -79,8 +79,7 @@ pub fn clear_backups(metadata: &Metadata) {
 
     if metadata.is_dir() {
         // delete all files
-        fs::remove_dir_all(&dir).unwrap(); // TODO this makes me feel uneasy
-        fs::remove_dir(dir.parent().unwrap()).unwrap(); // TODO this makes me feel uneasy
+        fs::remove_dir_all(dir.parent().unwrap()).unwrap(); // TODO this makes me feel uneasy
     } else {
         fs::remove_file(&dir).unwrap();
     }
