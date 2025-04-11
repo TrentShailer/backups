@@ -2,58 +2,82 @@
 //! Generate certificates and keys for testing
 //!
 
+use core::net::{IpAddr, Ipv4Addr};
 use std::io;
 
-use rcgen::{Certificate, KeyPair};
+use rcgen::{Certificate, KeyPair, SanType};
 use rustls::RootCertStore;
 use rustls_pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
-use tracing::{Level, subscriber::set_global_default};
+use tracing::{
+    Level,
+    subscriber::{DefaultGuard, set_default},
+};
 use tracing_appender::non_blocking::WorkerGuard;
 use tracing_subscriber::{layer::SubscriberExt, registry};
 
-/// Generate a new certificate authority
-pub fn new_certificate_authority() -> ((KeyPair, Certificate), RootCertStore) {
-    let mut params = rcgen::CertificateParams::new(Vec::new()).unwrap();
-    params
-        .distinguished_name
-        .push(rcgen::DnType::OrganizationName, "CA");
-
-    params
-        .distinguished_name
-        .push(rcgen::DnType::CommonName, "CA");
-    params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
-    params.key_usages = vec![
-        rcgen::KeyUsagePurpose::KeyCertSign,
-        rcgen::KeyUsagePurpose::DigitalSignature,
-        rcgen::KeyUsagePurpose::CrlSign,
-    ];
-
-    let key = KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256).unwrap();
-    let certificate = params.self_signed(&key).unwrap();
-
-    let mut roots = RootCertStore::empty();
-    roots.add(certificate.der().clone()).unwrap();
-
-    ((key, certificate), roots)
+/// A certificate authority for testing.
+pub struct CertificateAuthority {
+    /// The CA Key
+    pub key: KeyPair,
+    /// The CA Certificate
+    pub certificate: Certificate,
 }
 
-/// Generate a new key and signed certificate
-pub fn new_signed(certificate_authority: &(KeyPair, Certificate)) -> (KeyPair, Certificate) {
-    // Create a client end entity cert issued by the CA.
-    let mut client_params = rcgen::CertificateParams::new(Vec::new()).unwrap();
-    client_params
-        .distinguished_name
-        .push(rcgen::DnType::CommonName, "Signed");
-    client_params.is_ca = rcgen::IsCa::NoCa;
-    client_params.extended_key_usages = vec![rcgen::ExtendedKeyUsagePurpose::ClientAuth];
-    client_params.serial_number = Some(rcgen::SerialNumber::from(vec![0xC0, 0xFF, 0xEE]));
+impl CertificateAuthority {
+    /// Create a new certificate authority.
+    #[allow(clippy::new_without_default)]
+    pub fn new() -> Self {
+        let mut params = rcgen::CertificateParams::new(Vec::new()).unwrap();
+        params
+            .distinguished_name
+            .push(rcgen::DnType::OrganizationName, "CA");
+        params
+            .distinguished_name
+            .push(rcgen::DnType::CommonName, "CA");
+        params.is_ca = rcgen::IsCa::Ca(rcgen::BasicConstraints::Unconstrained);
+        params.key_usages = vec![
+            rcgen::KeyUsagePurpose::KeyCertSign,
+            rcgen::KeyUsagePurpose::DigitalSignature,
+            rcgen::KeyUsagePurpose::CrlSign,
+        ];
 
-    let key = KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256).unwrap();
-    let certificate = client_params
-        .signed_by(&key, &certificate_authority.1, &certificate_authority.0)
-        .unwrap();
+        let key = KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256).unwrap();
+        let certificate = params.self_signed(&key).unwrap();
 
-    (key, certificate)
+        Self { key, certificate }
+    }
+
+    /// Create a certificate trust store containing the CA.
+    pub fn certificate_store(&self) -> RootCertStore {
+        let mut roots = RootCertStore::empty();
+        roots.add(self.certificate.der().clone()).unwrap();
+
+        roots
+    }
+
+    /// Generate a key and sign it's certificate.
+    pub fn generate_signed(&self) -> (KeyPair, Certificate) {
+        // Create a client end entity cert issued by the CA.
+        let mut client_params = rcgen::CertificateParams::new(Vec::new()).unwrap();
+        client_params
+            .distinguished_name
+            .push(rcgen::DnType::CommonName, "Signed");
+        client_params.subject_alt_names = vec![SanType::IpAddress(IpAddr::V4(Ipv4Addr::LOCALHOST))];
+        client_params.is_ca = rcgen::IsCa::NoCa;
+
+        client_params.extended_key_usages = vec![
+            rcgen::ExtendedKeyUsagePurpose::ClientAuth,
+            rcgen::ExtendedKeyUsagePurpose::ServerAuth,
+        ];
+        client_params.serial_number = Some(rcgen::SerialNumber::from(vec![0xC0, 0xFF, 0xEE]));
+
+        let key = KeyPair::generate_for(&rcgen::PKCS_ECDSA_P256_SHA256).unwrap();
+        let certificate = client_params
+            .signed_by(&key, &self.certificate, &self.key)
+            .unwrap();
+
+        (key, certificate)
+    }
 }
 
 /// Convert a keypair to a private key der
@@ -62,7 +86,7 @@ pub fn private_key_der(key: &KeyPair) -> PrivateKeyDer<'static> {
 }
 
 /// Create and set the global loggers.
-pub fn init_test_logger() -> WorkerGuard {
+pub fn init_test_logger() -> (DefaultGuard, WorkerGuard) {
     let filter = tracing_subscriber::filter::Targets::new().with_default(Level::TRACE);
 
     // Std layer
@@ -81,7 +105,7 @@ pub fn init_test_logger() -> WorkerGuard {
     let registry = registry().with(std_layer).with(filter);
 
     // Set global subscriber
-    set_global_default(registry).unwrap();
+    let subscriber = set_default(registry);
 
-    std_guard
+    (subscriber, std_guard)
 }

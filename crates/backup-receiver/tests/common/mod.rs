@@ -1,38 +1,48 @@
 //! # common
 //!
 
+#![allow(unused)]
+
 use core::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::{
     collections::HashMap,
-    fs,
-    io::{self, ErrorKind},
-    net::TcpListener,
-    path::PathBuf,
+    fs::{self, ReadDir},
+    io::ErrorKind,
+    net::{TcpListener, TcpStream},
     sync::Arc,
 };
 
 use backup_receiver::{Config, Receiver};
-use rustls::server::{NoServerSessionStorage, WebPkiClientVerifier};
-use shared::Metadata;
+use rcgen::{Certificate, KeyPair};
+use rustls::{
+    ClientConfig, ClientConnection, RootCertStore, Stream,
+    pki_types::ServerName,
+    server::{NoServerSessionStorage, WebPkiClientVerifier},
+};
+use shared::{
+    Metadata,
+    test::{CertificateAuthority, private_key_der},
+};
 
-pub fn test_receiver() -> Receiver {
+pub fn test_receiver(certificate_authority: &CertificateAuthority) -> Receiver {
     let config = Config::default();
 
     // Setup TLS config
     let tls_config = {
-        let (certificate_authority, root_cert_store) = shared::test::new_certificate_authority();
-        let (key, certificate) = shared::test::new_signed(&certificate_authority);
-        let private_key = shared::test::private_key_der(&key);
+        let (key, certificate) = certificate_authority.generate_signed();
+        let private_key = private_key_der(&key);
 
-        let client_cert_verifier = WebPkiClientVerifier::builder(Arc::new(root_cert_store))
-            .build()
-            .unwrap();
+        let client_cert_verifier =
+            WebPkiClientVerifier::builder(Arc::new(certificate_authority.certificate_store()))
+                .build()
+                .unwrap();
 
         let mut tls_config = rustls::ServerConfig::builder()
             .with_client_cert_verifier(client_cert_verifier)
             .with_single_cert(vec![certificate.der().clone()], private_key)
             .unwrap();
 
+        tls_config.send_tls13_tickets = 0;
         tls_config.session_storage = Arc::new(NoServerSessionStorage {});
 
         Arc::new(tls_config)
@@ -63,6 +73,30 @@ pub fn test_receiver() -> Receiver {
     }
 }
 
+pub fn test_client(
+    key: KeyPair,
+    certificate: Certificate,
+    roots: RootCertStore,
+    address: SocketAddr,
+) -> (TcpStream, ClientConnection) {
+    let tls_config = ClientConfig::builder()
+        .with_root_certificates(roots)
+        .with_client_auth_cert(vec![certificate.der().clone()], private_key_der(&key))
+        .unwrap();
+
+    // Connect via TCP
+    let mut socket = TcpStream::connect(address).unwrap();
+
+    // Connect via TLS
+    let server_name: ServerName<'_> = "127.0.0.1".try_into().expect("Invalid DNS name");
+    let mut client = ClientConnection::new(tls_config.into(), server_name).unwrap();
+
+    // Complete handshake with server to ensure authentication
+    client.complete_io(&mut socket).unwrap();
+
+    (socket, client)
+}
+
 pub fn clear_backups(metadata: &Metadata) {
     let dir = metadata.backup_directory();
 
@@ -79,13 +113,13 @@ pub fn clear_backups(metadata: &Metadata) {
 
     if metadata.is_dir() {
         // delete all files
-        fs::remove_dir_all(dir.parent().unwrap()).unwrap(); // TODO this makes me feel uneasy
+        fs::remove_dir_all(dir.parent().unwrap()).unwrap();
     } else {
         fs::remove_file(&dir).unwrap();
     }
 }
 
-pub fn check_backup(metadata: &Metadata, payload: &[u8]) {
+pub fn backup_dir(metadata: &Metadata) -> ReadDir {
     let dir = metadata.backup_directory();
 
     let dir_metadata =
@@ -95,7 +129,11 @@ pub fn check_backup(metadata: &Metadata, payload: &[u8]) {
         panic!("Backup directory should be a directory: {dir:?}");
     }
 
-    let directory: Vec<_> = fs::read_dir(dir).unwrap().collect();
+    fs::read_dir(dir).unwrap()
+}
+
+pub fn check_backup_payload(metadata: &Metadata, payload: &[u8]) {
+    let directory: Vec<_> = backup_dir(metadata).collect();
     assert_eq!(directory.len(), 1);
 
     for file in directory {

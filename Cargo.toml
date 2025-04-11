@@ -39,6 +39,9 @@ mimalloc = "0.1"
 # Workspace dependencies
 shared = { path = "crates/shared" }
 
+# Generating certiciates for testing
+rcgen = { version = "0.13" }
+
 [workspace.lints.rust]
 "missing_docs" = "warn"
 "unused_qualifications" = "warn"
