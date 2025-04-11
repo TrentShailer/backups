@@ -5,13 +5,13 @@
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
-use std::{fs, path::PathBuf, time::Instant};
+use std::{fs, path::PathBuf};
 
-use backup_receiver::{Config, ContextLogger, Receiver, cleanup};
+use backup_receiver::{Config, Receiver};
 use mimalloc::MiMalloc;
-use rustls::Stream;
-use shared::{Response, init_logger};
-use tracing::{error, warn};
+
+use shared::init_logger;
+use tracing::{error, info};
 
 fn main() {
     let _logger = init_logger().unwrap();
@@ -32,6 +32,7 @@ fn main() {
             return;
         }
     };
+    let address = config.socket_address;
 
     // Create receiver
     let mut receiver = match Receiver::new(config) {
@@ -42,38 +43,9 @@ fn main() {
         }
     };
 
+    info!("Listening on: {address}");
+
     loop {
-        let mut context = ContextLogger::default();
-
-        let (mut connection, mut stream, peer) = match receiver.accept_client(&mut context) {
-            Ok(client) => client,
-            Err(error) => {
-                warn!("{context}Failed to accept mTLS connection: {error}");
-                continue;
-            }
-        };
-
-        let mut stream = Stream::new(&mut connection, &mut stream);
-
-        let metadata = match receiver.handle_client(&mut context, &mut stream, peer) {
-            Ok(metadata) => {
-                receiver.send_response_and_close(&mut context, &mut stream, Response::Success);
-                metadata
-            }
-            Err(response) => {
-                receiver.send_response_and_close(&mut context, &mut stream, response);
-                continue;
-            }
-        };
-
-        // Track backup in history
-        if let Some(history) = receiver.history.get_mut(&peer.ip()) {
-            history.push(Instant::now());
-        } else {
-            receiver.history.insert(peer.ip(), vec![Instant::now()]);
-        }
-
-        // Clean up files
-        cleanup(&mut context, &receiver.config, &metadata);
+        receiver.accept_and_handle_client();
     }
 }

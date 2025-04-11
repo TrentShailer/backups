@@ -18,4 +18,7 @@ pub enum Response {
 
     /// The sender tried to send something that exeeded the size limit.
     TooLarge,
+
+    /// The payload took too long to receive.
+    Timeout,
 }

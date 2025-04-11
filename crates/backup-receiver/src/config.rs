@@ -50,6 +50,9 @@ pub struct Limits {
 
     /// The maximum number of files to store for each cadance.
     pub maximum_files: MaximumFiles,
+
+    /// The maximum duration to receive the payload or metadata in seconds.
+    pub timeout_seconds: u64,
 }
 
 impl Default for Limits {
@@ -58,6 +61,7 @@ impl Default for Limits {
             maximum_payload_bytes: 1024 * 1024 * 10, // 10 MiB,
             maximum_backups_per_hour: 64,            // 640 MiB per hour,
             maximum_files: MaximumFiles::default(),
+            timeout_seconds: 30,
         }
     }
 }
