@@ -7,15 +7,15 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::{
-    endpoint::{BackupRecevier, Endpoint},
+    endpoint::Endpoint,
     source::{DockerPostgres, Source},
 };
 
 /// The receiver's config
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Config {
-    /// The endpoints to send backups to.
-    pub endpoints: Vec<Endpoint>,
+    /// The endpoint to send backups to.
+    pub endpoint: Endpoint,
 
     /// The sources  to retreive backups from.
     pub sources: Vec<Source>,
@@ -38,7 +38,7 @@ impl Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            endpoints: vec![Endpoint::BackupReceiver(BackupRecevier::default())],
+            endpoint: Endpoint::default(),
             sources: vec![Source::DockerPostgres(DockerPostgres::default())],
         }
     }

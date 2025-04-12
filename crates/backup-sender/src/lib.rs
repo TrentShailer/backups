@@ -6,6 +6,7 @@ use std::io::BufRead;
 use shared::Metadata;
 
 pub mod config;
+pub mod context;
 pub mod endpoint;
 pub mod history;
 pub mod source;

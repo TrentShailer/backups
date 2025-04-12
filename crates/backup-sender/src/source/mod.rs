@@ -38,11 +38,10 @@ impl Source {
         }
     }
 
+    /// The service name of the backup
     pub fn service_name(&self) -> String {
         match self {
-            Self::DockerPostgres(docker_postgres) => {
-                todo!()
-            }
+            Self::DockerPostgres(docker_postgres) => docker_postgres.service_name.as_string(),
         }
     }
 }

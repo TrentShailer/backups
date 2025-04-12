@@ -20,9 +20,11 @@ pub struct DockerPostgres {
     /// The postgres database.
     pub postgres_database: String,
 
-    service_name: MetadataString<128>,
+    /// The service name.
+    pub service_name: MetadataString<128>,
 
-    file_extension: MetadataString<32>,
+    /// The file extension.
+    pub file_extension: MetadataString<32>,
 
     /// The cadances to backup this source.
     pub cadance: Vec<Cadance>,
