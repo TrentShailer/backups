@@ -1,13 +1,10 @@
 use std::path::PathBuf;
 
-use bytemuck::{CheckedBitPattern, NoUninit};
 use serde::{Deserialize, Serialize};
 
 /// The cadance of a backup.
 #[repr(u64)]
-#[derive(
-    Hash, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, CheckedBitPattern, NoUninit,
-)]
+#[derive(Hash, Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub enum Cadance {
     /// A backup should be sent every hour.
     Hourly = 0,
@@ -30,6 +27,20 @@ impl Cadance {
             Self::Daily => "daily".into(),
             Self::Weekly => "weekly".into(),
             Self::Monthly => "monthly".into(),
+        }
+    }
+
+    /// Convert the cadance to big endian bytes.
+    pub fn to_be_bytes(self) -> [u8; size_of::<Self>()] {
+        let value: u64 = unsafe { core::mem::transmute(self) };
+        value.to_be_bytes()
+    }
+
+    /// Try convert a u64 value to a cadance.
+    pub fn try_from_u64(value: u64) -> Option<Self> {
+        match value {
+            0..=3 => Some(unsafe { core::mem::transmute::<u64, Self>(value) }),
+            _ => None,
         }
     }
 }

@@ -1,17 +1,13 @@
 #![allow(missing_docs)]
 
-use bytemuck::{
-    PodCastError, bytes_of,
-    checked::{self, CheckedCastError},
-};
-use shared::{Cadance, Metadata};
+use shared::{Cadance, Metadata, MetadataFromBytesError, MetadataString, MetadataStringError};
 
-pub fn valid_32() -> [u8; 32] {
-    Metadata::pad_string(b"u32_byte_string\0")
+pub fn valid_32() -> MetadataString<32> {
+    MetadataString::try_from("32_byte_string").unwrap()
 }
 
-pub fn valid_128() -> [u8; 128] {
-    Metadata::pad_string(b"u128_byte_string\0")
+pub fn valid_128() -> MetadataString<128> {
+    MetadataString::try_from("128_byte_string").unwrap()
 }
 
 #[test]
@@ -22,75 +18,108 @@ fn valid_string() {
 #[test]
 fn valid_from_bytes() {
     let metadata = Metadata::new(0, valid_128(), Cadance::Daily, valid_32());
-    let bytes = bytes_of(&metadata);
-    let _metadata: Metadata = *checked::try_from_bytes(bytes).unwrap();
+    let bytes = metadata.as_be_bytes();
+    let _metadata = Metadata::try_from_be_bytes(bytes).unwrap();
 }
 
 #[test]
-#[should_panic]
-fn empty_string() {
-    let _metadata = Metadata::new(0, Metadata::pad_string(b""), Cadance::Daily, valid_32());
-}
-
-#[test]
-fn empty_string_from_bytes() {
+fn null_string() {
     let metadata = unsafe {
-        Metadata::new_unchecked(0, Metadata::pad_string(b""), Cadance::Daily, valid_32())
+        Metadata::new(
+            0,
+            MetadataString::new_unchecked([0u8; 128]),
+            Cadance::Daily,
+            valid_32(),
+        )
     };
-    let bytes = bytes_of(&metadata);
-    let result = checked::try_from_bytes::<Metadata>(bytes);
-    assert!(matches!(result, Err(CheckedCastError::InvalidBitPattern)));
-}
-
-#[test]
-#[should_panic]
-fn nul_string() {
-    let _metadata = Metadata::new(0, valid_128(), Cadance::Daily, Metadata::pad_string(b"\0"));
-}
-
-#[test]
-fn nul_string_from_bytes() {
-    let metadata = unsafe {
-        Metadata::new_unchecked(0, Metadata::pad_string(b""), Cadance::Daily, valid_32())
-    };
-    let bytes = bytes_of(&metadata);
-    let result = checked::try_from_bytes::<Metadata>(bytes);
-    assert!(matches!(result, Err(CheckedCastError::InvalidBitPattern)));
-}
-
-#[test]
-#[should_panic]
-fn invalid_character() {
-    let _metadata = Metadata::new(0, Metadata::pad_string(b"#"), Cadance::Daily, valid_32());
-}
-
-#[test]
-fn invalid_character_from_bytes() {
-    let metadata = unsafe {
-        Metadata::new_unchecked(0, Metadata::pad_string(b"#"), Cadance::Daily, valid_32())
-    };
-    let bytes = bytes_of(&metadata);
-
-    let result = checked::try_from_bytes::<Metadata>(bytes);
-    assert!(matches!(result, Err(CheckedCastError::InvalidBitPattern)));
-}
-
-#[test]
-fn too_many_bytes() {
-    let bytes = [0u8; size_of::<Metadata>() * 2];
-    let result = checked::try_from_bytes::<Metadata>(&bytes);
+    let bytes = metadata.as_be_bytes();
+    let result = Metadata::try_from_be_bytes(bytes);
     assert!(matches!(
         result,
-        Err(CheckedCastError::PodCastError(PodCastError::SizeMismatch))
-    ),);
+        Err(MetadataFromBytesError::InvalidServiceName(
+            MetadataStringError::Invalid(0, b'\0', '\0')
+        ))
+    ));
+
+    // ---
+
+    let metadata = unsafe {
+        Metadata::new(
+            0,
+            valid_128(),
+            Cadance::Daily,
+            MetadataString::new_unchecked([0u8; 32]),
+        )
+    };
+    let bytes = metadata.as_be_bytes();
+    let result = Metadata::try_from_be_bytes(bytes);
+    assert!(matches!(
+        result,
+        Err(MetadataFromBytesError::InvalidFileExtension(
+            MetadataStringError::Invalid(0, b'\0', '\0')
+        ))
+    ));
 }
 
 #[test]
-fn too_few_bytes() {
-    let bytes = [0u8; 2];
-    let result = checked::try_from_bytes::<Metadata>(&bytes);
+fn invalid_string() {
+    let metadata = unsafe {
+        let mut bytes = [0u8; 128];
+        bytes[0] = b'#';
+
+        Metadata::new(
+            0,
+            MetadataString::new_unchecked(bytes),
+            Cadance::Daily,
+            valid_32(),
+        )
+    };
+    let bytes = metadata.as_be_bytes();
+    let result = Metadata::try_from_be_bytes(bytes);
     assert!(matches!(
         result,
-        Err(CheckedCastError::PodCastError(PodCastError::SizeMismatch))
-    ),);
+        Err(MetadataFromBytesError::InvalidServiceName(
+            MetadataStringError::Invalid(0, b'#', '#')
+        ))
+    ));
+
+    // ---
+
+    let metadata = unsafe {
+        let mut bytes = [0u8; 32];
+        bytes[0] = b'#';
+
+        Metadata::new(
+            0,
+            valid_128(),
+            Cadance::Daily,
+            MetadataString::new_unchecked(bytes),
+        )
+    };
+    let bytes = metadata.as_be_bytes();
+    let result = Metadata::try_from_be_bytes(bytes);
+    assert!(matches!(
+        result,
+        Err(MetadataFromBytesError::InvalidFileExtension(
+            MetadataStringError::Invalid(0, b'#', '#')
+        ))
+    ));
+}
+
+#[test]
+fn invalid_cadance() {
+    let metadata = unsafe {
+        Metadata::new(
+            0,
+            valid_128(),
+            core::mem::transmute::<u64, Cadance>(u64::MAX),
+            valid_32(),
+        )
+    };
+    let bytes = metadata.as_be_bytes();
+    let result = Metadata::try_from_be_bytes(bytes);
+    assert!(matches!(
+        result,
+        Err(MetadataFromBytesError::InvalidCadance(u64::MAX))
+    ));
 }

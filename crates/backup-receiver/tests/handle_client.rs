@@ -5,9 +5,8 @@ use core::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::io::Cursor;
 
 use backup_receiver::ContextLogger;
-use bytemuck::bytes_of;
 use common::{check_backup_payload, clear_backups, test_receiver};
-use shared::{Cadance, Metadata, Response, test::CertificateAuthority};
+use shared::{Cadance, Metadata, MetadataString, Response, test::CertificateAuthority};
 
 mod common;
 
@@ -21,16 +20,16 @@ fn handle_average_client() {
     let payload = vec![0u8; 512];
     let metadata = Metadata::new(
         512,
-        Metadata::pad_string(b"handle_average_client"),
+        MetadataString::try_from("handle_average_client").unwrap(),
         Cadance::Daily,
-        Metadata::pad_string(b"test"),
+        MetadataString::try_from("test").unwrap(),
     );
     clear_backups(&metadata);
 
     let data = {
         let mut data: Vec<u8> = Vec::new();
 
-        data.extend_from_slice(bytes_of(&metadata));
+        data.extend_from_slice(&metadata.as_be_bytes());
         data.extend_from_slice(&payload);
 
         data
@@ -55,16 +54,16 @@ fn handle_payload_timeout() {
     let payload = vec![0u8; 256];
     let metadata = Metadata::new(
         512,
-        Metadata::pad_string(b"handle_payload_timeout"),
+        MetadataString::try_from("handle_payload_timeout").unwrap(),
         Cadance::Daily,
-        Metadata::pad_string(b"test"),
+        MetadataString::try_from("test").unwrap(),
     );
     clear_backups(&metadata);
 
     let data = {
         let mut data: Vec<u8> = Vec::new();
 
-        data.extend_from_slice(bytes_of(&metadata));
+        data.extend_from_slice(&metadata.as_be_bytes());
         data.extend_from_slice(&payload);
 
         data

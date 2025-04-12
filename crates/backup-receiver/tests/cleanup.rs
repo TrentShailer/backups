@@ -5,7 +5,7 @@ use std::fs;
 
 use backup_receiver::{Config, ContextLogger, cleanup};
 use common::clear_backups;
-use shared::{Cadance, Metadata};
+use shared::{Cadance, Metadata, MetadataString};
 
 mod common;
 
@@ -13,9 +13,9 @@ mod common;
 fn cleanup_max_files() {
     let metadata = Metadata::new(
         512,
-        Metadata::pad_string(b"cleanup_max_files"),
+        MetadataString::try_from("cleanup_max_files").unwrap(),
         Cadance::Daily,
-        Metadata::pad_string(b"test"),
+        MetadataString::try_from("test").unwrap(),
     );
     clear_backups(&metadata);
 

@@ -10,7 +10,6 @@ use std::{
     time::Instant,
 };
 
-use bytemuck::bytes_of;
 use rustls::{
     ServerConnection, Stream,
     server::{Acceptor, NoServerSessionStorage, VerifierBuilderError, WebPkiClientVerifier},
@@ -196,8 +195,8 @@ impl Receiver {
             warn!("{context}Sending {response:?}")
         }
 
-        let response_bytes = bytes_of(&response);
-        if let Err(error) = stream.write_all(response_bytes) {
+        let response_bytes = response.to_be_bytes();
+        if let Err(error) = stream.write_all(&response_bytes) {
             error!("{context}Could not write response: {error}");
         };
 

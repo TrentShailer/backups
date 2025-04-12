@@ -6,10 +6,9 @@ use std::{
     thread,
 };
 
-use bytemuck::{bytes_of, checked};
 use common::{check_backup_payload, clear_backups, test_client, test_receiver};
 use rustls::{AlertDescription, Stream};
-use shared::{Cadance, Metadata, Response, test::CertificateAuthority};
+use shared::{Cadance, Metadata, MetadataString, Response, test::CertificateAuthority};
 
 mod common;
 
@@ -34,13 +33,13 @@ fn average_client() {
     let payload = vec![0u8; 512];
     let metadata = Metadata::new(
         512,
-        Metadata::pad_string(b"average_client"),
+        MetadataString::try_from("average_client").unwrap(),
         Cadance::Daily,
-        Metadata::pad_string(b"test"),
+        MetadataString::try_from("test").unwrap(),
     );
     clear_backups(&metadata);
 
-    stream.write_all(bytes_of(&metadata)).unwrap();
+    stream.write_all(&metadata.as_be_bytes()).unwrap();
     stream.write_all(&payload).unwrap();
     stream.flush().unwrap();
     let mut response_buffer = [0u8; size_of::<Response>()];
@@ -50,7 +49,7 @@ fn average_client() {
 
     thread.join().unwrap();
 
-    let response: Response = *checked::try_from_bytes(&response_buffer).unwrap();
+    let response = Response::try_from_u64(u64::from_be_bytes(response_buffer)).unwrap();
 
     assert_eq!(response, Response::Success);
     check_backup_payload(&metadata, &payload);
@@ -108,13 +107,13 @@ fn short_payload() {
     let payload = vec![0u8; 256];
     let metadata = Metadata::new(
         512,
-        Metadata::pad_string(b"short_payload"),
+        MetadataString::try_from("short_payload").unwrap(),
         Cadance::Daily,
-        Metadata::pad_string(b"test"),
+        MetadataString::try_from("test").unwrap(),
     );
     clear_backups(&metadata);
 
-    stream.write_all(bytes_of(&metadata)).unwrap();
+    stream.write_all(&metadata.as_be_bytes()).unwrap();
     stream.write_all(&payload).unwrap();
     stream.flush().unwrap();
     let mut response_buffer = [0u8; size_of::<Response>()];
@@ -124,7 +123,7 @@ fn short_payload() {
 
     thread.join().unwrap();
 
-    let response: Response = *checked::try_from_bytes(&response_buffer).unwrap();
+    let response = Response::try_from_u64(u64::from_be_bytes(response_buffer)).unwrap();
 
     assert_eq!(response, Response::Timeout);
     clear_backups(&metadata);
@@ -160,7 +159,7 @@ fn short_metadata() {
 
     thread.join().unwrap();
 
-    let response: Response = *checked::try_from_bytes(&response_buffer).unwrap();
+    let response = Response::try_from_u64(u64::from_be_bytes(response_buffer)).unwrap();
 
     assert_eq!(response, Response::Timeout);
 }
@@ -195,7 +194,7 @@ fn bad_metadata() {
 
     thread.join().unwrap();
 
-    let response: Response = *checked::try_from_bytes(&response_buffer).unwrap();
+    let response = Response::try_from_u64(u64::from_be_bytes(response_buffer)).unwrap();
 
     assert_eq!(response, Response::BadData);
 }

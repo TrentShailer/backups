@@ -1,48 +1,35 @@
-use std::{borrow::Cow, path::PathBuf};
+use core::mem::offset_of;
+use std::path::PathBuf;
 
-use bytemuck::{CheckedBitPattern, NoUninit};
+use thiserror::Error;
 
-use crate::Cadance;
+use crate::{Cadance, MetadataString, MetadataStringError, cadance};
 
 /// Metadata containing information about the backup payload.
 #[repr(C)]
-#[derive(Clone, Copy, Debug, NoUninit, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Metadata {
     /// Backup size in bytes.
     pub backup_bytes: u64,
 
-    /// The name of the service this backup is for. Only `[a-zA-Z0-9_\-\0]` is valid.
-    service_name: [u8; 128],
+    /// The name of the service this backup is for.
+    pub service_name: MetadataString<128>,
 
     /// The cadance of this backup
     pub cadance: Cadance,
 
-    /// The file extension for the backup. Only `[a-zA-Z0-9_\-\0]` is valid.
-    file_extension: [u8; 32],
+    /// The file extension for the backup.
+    pub file_extension: MetadataString<32>,
 }
 
 impl Metadata {
     /// Creates a new metadata instance.
-    ///
-    /// # Panics
-    /// * If `service_name` or `file_extension` are invalid.
     pub fn new(
         backup_bytes: u64,
-        service_name: [u8; 128],
+        service_name: MetadataString<128>,
         cadance: Cadance,
-        file_extension: [u8; 32],
+        file_extension: MetadataString<32>,
     ) -> Self {
-        assert!(
-            is_valid_byte_string(&service_name),
-            "Service name '{}' is invalid",
-            String::from_utf8_lossy(&service_name)
-        );
-        assert!(
-            is_valid_byte_string(&file_extension),
-            "File extension '{}' is invalid",
-            String::from_utf8_lossy(&file_extension)
-        );
-
         Self {
             backup_bytes,
             service_name,
@@ -54,106 +41,103 @@ impl Metadata {
     /// Returns the path this backup's output directory.
     pub fn backup_directory(&self) -> PathBuf {
         PathBuf::from("backups")
-            .join(self.serivce_name().to_string())
+            .join(self.service_name.as_string())
             .join(self.cadance.as_path())
     }
 
-    #[allow(clippy::missing_safety_doc)]
-    /// Creates a new metadata instance.
-    /// Does not check service name or file extension.
-    pub unsafe fn new_unchecked(
-        backup_bytes: u64,
-        service_name: [u8; 128],
-        cadance: Cadance,
-        file_extension: [u8; 32],
-    ) -> Self {
-        Self {
+    pub fn as_be_bytes(&self) -> [u8; size_of::<Self>()] {
+        let mut bytes = [0u8; size_of::<Self>()];
+
+        {
+            const OFFSET: usize = offset_of!(Metadata, backup_bytes);
+            const END: usize = OFFSET + size_of::<u64>();
+            bytes[OFFSET..END].copy_from_slice(&self.backup_bytes.to_be_bytes());
+        }
+
+        {
+            const OFFSET: usize = offset_of!(Metadata, service_name);
+            const END: usize = OFFSET + size_of::<MetadataString<128>>();
+            bytes[OFFSET..END].copy_from_slice(self.service_name.as_bytes());
+        }
+
+        {
+            const OFFSET: usize = offset_of!(Metadata, cadance);
+            const END: usize = OFFSET + size_of::<Cadance>();
+            bytes[OFFSET..END].copy_from_slice(&self.cadance.to_be_bytes());
+        }
+
+        {
+            const OFFSET: usize = offset_of!(Metadata, file_extension);
+            const END: usize = OFFSET + size_of::<MetadataString<32>>();
+            bytes[OFFSET..END].copy_from_slice(self.file_extension.as_bytes());
+        }
+
+        bytes
+    }
+
+    pub fn try_from_be_bytes(
+        bytes: [u8; size_of::<Self>()],
+    ) -> Result<Metadata, MetadataFromBytesError> {
+        let backup_bytes = {
+            const OFFSET: usize = offset_of!(Metadata, backup_bytes);
+            const SIZE: usize = size_of::<u64>();
+            const END: usize = OFFSET + SIZE;
+            let bytes: [u8; SIZE] = bytes[OFFSET..END].try_into().unwrap();
+
+            u64::from_be_bytes(bytes)
+        };
+
+        let service_name = {
+            const OFFSET: usize = offset_of!(Metadata, service_name);
+            const SIZE: usize = size_of::<MetadataString<128>>();
+            const END: usize = OFFSET + SIZE;
+            let bytes: [u8; SIZE] = bytes[OFFSET..END].try_into().unwrap();
+
+            MetadataString::<128>::try_from(bytes.as_slice())
+                .map_err(MetadataFromBytesError::InvalidServiceName)?
+        };
+
+        let cadance = {
+            const OFFSET: usize = offset_of!(Metadata, cadance);
+            const SIZE: usize = size_of::<Cadance>();
+            const END: usize = OFFSET + SIZE;
+            let bytes: [u8; SIZE] = bytes[OFFSET..END].try_into().unwrap();
+
+            let value = u64::from_be_bytes(bytes);
+
+            match Cadance::try_from_u64(value) {
+                Some(cadance) => cadance,
+                None => return Err(MetadataFromBytesError::InvalidCadance(value)),
+            }
+        };
+
+        let file_extension = {
+            const OFFSET: usize = offset_of!(Metadata, file_extension);
+            const SIZE: usize = size_of::<MetadataString<32>>();
+            const END: usize = OFFSET + SIZE;
+            let bytes: [u8; SIZE] = bytes[OFFSET..END].try_into().unwrap();
+
+            MetadataString::<32>::try_from(bytes.as_slice())
+                .map_err(MetadataFromBytesError::InvalidFileExtension)?
+        };
+
+        Ok(Self {
             backup_bytes,
             service_name,
             cadance,
             file_extension,
-        }
-    }
-
-    /// The backup's service's name.
-    pub fn serivce_name(&self) -> Cow<'_, str> {
-        let name_end = self
-            .service_name
-            .iter()
-            .position(|byte| *byte == b'\0')
-            .unwrap_or(self.service_name.len());
-
-        String::from_utf8_lossy(&self.service_name[0..name_end])
-    }
-
-    /// The backup's file extension.
-    pub fn file_extension(&self) -> Cow<'_, str> {
-        let name_end = self
-            .file_extension
-            .iter()
-            .position(|byte| *byte == b'\0')
-            .unwrap_or(self.file_extension.len());
-
-        String::from_utf8_lossy(&self.file_extension[0..name_end])
-    }
-
-    /// Pads or truncates a byte slice to a specified length.
-    pub fn pad_string<const L: usize>(bytes: &[u8]) -> [u8; L] {
-        let mut output = [b'\0'; L];
-
-        let copy_length = bytes.len().min(L);
-        output[..copy_length].copy_from_slice(&bytes[..copy_length]);
-
-        output
+        })
     }
 }
 
-#[repr(C)]
-#[derive(Clone, Copy, bytemuck::AnyBitPattern)]
-#[allow(missing_docs)]
-pub struct MetadataBits {
-    backup_bytes: <u64 as CheckedBitPattern>::Bits,
-    service_name: <[u8; 128] as CheckedBitPattern>::Bits,
-    cadance: <Cadance as CheckedBitPattern>::Bits,
-    file_extension: <[u8; 32] as CheckedBitPattern>::Bits,
-}
+#[derive(Debug, Error)]
+pub enum MetadataFromBytesError {
+    #[error("Invalid service name: {0}")]
+    InvalidServiceName(#[source] MetadataStringError),
 
-unsafe impl CheckedBitPattern for Metadata {
-    type Bits = MetadataBits;
+    #[error("Invalid file extension: {0}")]
+    InvalidFileExtension(#[source] MetadataStringError),
 
-    fn is_valid_bit_pattern(bits: &Self::Bits) -> bool {
-        let valid_backup_bytes = u64::is_valid_bit_pattern(&{ bits.backup_bytes });
-        let valid_cadance = Cadance::is_valid_bit_pattern(&{ bits.cadance });
-
-        let valid_service_name =
-            <[u8; 128] as CheckedBitPattern>::is_valid_bit_pattern(&{ bits.service_name })
-                && is_valid_byte_string(&bits.service_name);
-
-        let valid_file_extension =
-            <[u8; 32] as CheckedBitPattern>::is_valid_bit_pattern(&{ bits.file_extension })
-                && is_valid_byte_string(&bits.file_extension);
-
-        valid_backup_bytes && valid_service_name && valid_cadance && valid_file_extension
-    }
-}
-
-fn is_valid_byte_string(bytes: &[u8]) -> bool {
-    const VALID_CHARACTERS: &[u8; 65] =
-        b"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-_\0";
-
-    if bytes.is_empty() {
-        return false;
-    }
-
-    // All characters must be valid
-    if bytes.iter().any(|byte| !VALID_CHARACTERS.contains(byte)) {
-        return false;
-    }
-
-    // First character must not be nul character
-    if bytes[0] == b'\0' {
-        return false;
-    }
-
-    true
+    #[error("Invalid cadance: {0}")]
+    InvalidCadance(u64),
 }

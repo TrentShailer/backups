@@ -5,7 +5,6 @@ use std::{
     time::Instant,
 };
 
-use bytemuck::checked;
 use chrono::Utc;
 use shared::{Metadata, Response};
 use tracing::{error, info, warn};
@@ -59,11 +58,11 @@ impl Receiver {
                 })?;
 
             // Try cast the bytes to a Metadata instance.
-            let metadata: Metadata = *checked::try_from_bytes(&buffer)
+            let metadata: Metadata = Metadata::try_from_be_bytes(buffer)
                 .inspect_err(|e| warn!("{context}Invalid metadata: {e}"))
                 .map_err(|_| Response::BadData)?;
 
-            context.backup = Some((metadata.serivce_name().to_string(), metadata.cadance));
+            context.backup = Some((metadata.service_name.as_string(), metadata.cadance));
             info!("{context}Received metadata");
 
             metadata
@@ -134,7 +133,7 @@ impl Receiver {
             let file_name = format!(
                 "{}.{}",
                 Utc::now().format("%Y-%m-%d_%H-%M-%S"),
-                metadata.file_extension()
+                metadata.file_extension
             );
             let backup_file_path = backup_directory.join(file_name);
 
