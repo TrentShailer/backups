@@ -11,10 +11,15 @@ pub struct MetadataString<const L: usize> {
 }
 
 impl<const L: usize> MetadataString<L> {
+    /// Create a new metadata string from bytes without checking if it is valid.
+    ///
+    /// # Safety
+    /// * `bytes` must be a valid representation of MetadataString.
     pub unsafe fn new_unchecked(bytes: [u8; L]) -> Self {
         Self { bytes }
     }
 
+    /// Converts the metadata string to a string.
     pub fn as_string(&self) -> String {
         let end = self
             .bytes
@@ -26,6 +31,7 @@ impl<const L: usize> MetadataString<L> {
             .or_log_and_panic("Metadata string MUST be valid UTF-8")
     }
 
+    /// Returns the underlying bytes.
     pub fn as_bytes(&self) -> &[u8; L] {
         &self.bytes
     }
@@ -128,6 +134,7 @@ impl<const L: usize> Serialize for MetadataString<L> {
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum MetadataStringError {
     /// `length, limit`

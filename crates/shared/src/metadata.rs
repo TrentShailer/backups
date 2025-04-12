@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use thiserror::Error;
 
-use crate::{Cadance, MetadataString, MetadataStringError, cadance};
+use crate::{Cadance, MetadataString, MetadataStringError};
 
 /// Metadata containing information about the backup payload.
 #[repr(C)]
@@ -45,6 +45,7 @@ impl Metadata {
             .join(self.cadance.as_path())
     }
 
+    /// Convert metadata to bytes with a big endian byte order for non-byte values.
     pub fn as_be_bytes(&self) -> [u8; size_of::<Self>()] {
         let mut bytes = [0u8; size_of::<Self>()];
 
@@ -75,9 +76,10 @@ impl Metadata {
         bytes
     }
 
+    /// Try convert some bytes to an instance of metadata.
     pub fn try_from_be_bytes(
         bytes: [u8; size_of::<Self>()],
-    ) -> Result<Metadata, MetadataFromBytesError> {
+    ) -> Result<Self, MetadataFromBytesError> {
         let backup_bytes = {
             const OFFSET: usize = offset_of!(Metadata, backup_bytes);
             const SIZE: usize = size_of::<u64>();
@@ -130,6 +132,7 @@ impl Metadata {
     }
 }
 
+#[allow(missing_docs)]
 #[derive(Debug, Error)]
 pub enum MetadataFromBytesError {
     #[error("Invalid service name: {0}")]
