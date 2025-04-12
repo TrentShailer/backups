@@ -4,10 +4,12 @@
 use core::fmt::{Debug, Display};
 use std::io::BufRead;
 
+use mock::Mock;
 use serde::{Deserialize, Serialize};
 use shared::Cadance;
 
 mod docker_postgres;
+mod mock;
 
 pub use docker_postgres::{DockerPostgres, DockerPostgresError};
 
@@ -35,6 +37,7 @@ pub trait BackupSource: Debug + Serialize + for<'a> Deserialize<'a> {
 #[derive(Debug, Deserialize, Serialize)]
 pub enum Source {
     DockerPostgres(DockerPostgres),
+    Mock(Mock),
 }
 
 impl Source {
@@ -42,6 +45,7 @@ impl Source {
     pub fn cadance(&self) -> &[Cadance] {
         match self {
             Self::DockerPostgres(docker_postgres) => &docker_postgres.cadance,
+            Self::Mock(mock) => &mock.cadance,
         }
     }
 
@@ -49,6 +53,7 @@ impl Source {
     pub fn service_name(&self) -> String {
         match self {
             Self::DockerPostgres(docker_postgres) => docker_postgres.service_name.as_string(),
+            Self::Mock(mock) => mock.service_name.as_string(),
         }
     }
 }

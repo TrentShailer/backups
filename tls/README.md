@@ -1,16 +1,17 @@
 # TLS
 
-## Generate CA
+## Generate Certificates
 
-`cfssl gencert -config config.json -profile authority -initca csr_ca.json | cfssljson -bare backups-ca`
+```powershell
+cfssl gencert -config config.json -profile authority -initca csr_ca.json | cfssljson -bare backup-ca
+cfssl gencert -ca backup-ca.pem -ca-key backup-ca-key.pem -config config.json -profile client csr_sender.json | cfssljson -bare backup-sender
+cfssl gencert -ca backup-ca.pem -ca-key backup-ca-key.pem -config config.json -profile client csr_receiver.json | cfssljson -bare backup-receiver
+```
 
-`cfssl gencert -renewca -ca backups-ca.pem -ca-key backups-ca-key.pem`
+## Renew CA
 
-## Generate Clients
-
-* `cfssl gencert -ca backups-ca.pem -ca-key backups-ca-key.pem -config config.json -profile client csr_sender.json | cfssljson -bare backups-sender`
-* `cfssl gencert -ca backups-ca.pem -ca-key backups-ca-key.pem -config config.json -profile client csr_receiver.json | cfssljson -bare backups-receiver`
+`cfssl gencert -renewca -ca backup-ca.pem -ca-key backup-ca-key.pem`
 
 ## Info
 
-* `openssl x509 -in backups-ca.pem -text`
+* `openssl x509 -in backup-ca.pem -text`

@@ -12,7 +12,7 @@ use backup_sender::{
 };
 use mimalloc::MiMalloc;
 use shared::{Failure, init_logger};
-use tracing::error;
+use tracing::{error, info};
 
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
@@ -25,13 +25,13 @@ fn main() {
         let config = Config::default();
         let contents =
             toml::to_string_pretty(&config).or_log_and_panic("Could not serialize config file");
-        fs::write("config.toml", contents).or_log_and_panic("Could not create config file");
+        fs::write("sender-config.toml", contents).or_log_and_panic("Could not create config file");
         return;
     }
 
     // Load config
-    let config =
-        Config::load_toml(PathBuf::from("./config.toml")).or_log_and_panic("Could not load config");
+    let config = Config::load_toml(PathBuf::from("./sender-config.toml"))
+        .or_log_and_panic("Could not load config");
 
     // Load history
     let mut history =
@@ -49,6 +49,8 @@ fn main() {
                     continue;
                 }
 
+                info!("{context}Making backup");
+
                 let backup = match source {
                     Source::DockerPostgres(docker_postgres) => {
                         match docker_postgres.get_backup(*cadance) {
@@ -59,12 +61,22 @@ fn main() {
                             }
                         }
                     }
+
+                    Source::Mock(mock) => match mock.get_backup(*cadance) {
+                        Ok(backup) => backup,
+                        Err(error) => {
+                            error!("{context}Failed to get backup: {error}");
+                            continue;
+                        }
+                    },
                 };
+                info!("{context}Got backup");
 
                 if let Err(error) = config.endpoint.send_backup(backup) {
                     error!("{context}Failed to send backup: {error}");
                     continue;
-                };
+                }
+                info!("{context}Sent backup");
 
                 if let Err(error) = history.update(source.service_name(), *cadance) {
                     error!("{context}Could not update history: {error}");

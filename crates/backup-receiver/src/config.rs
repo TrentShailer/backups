@@ -2,7 +2,6 @@ use core::net::SocketAddr;
 use std::{fs, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
-use shared::Cadance;
 use thiserror::Error;
 
 /// The receiver's TLS config.
@@ -72,9 +71,6 @@ pub struct Config {
     /// The address to listen for senders on.
     pub socket_address: SocketAddr,
 
-    /// The expected backup cadance.
-    pub expected_cadance: Cadance,
-
     /// The receiver's TLS config.
     pub tls: TlsConfig,
 
@@ -100,7 +96,6 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             socket_address: "0.0.0.0:8080".parse().unwrap(),
-            expected_cadance: Cadance::Hourly,
             tls: TlsConfig::default(),
             limits: Limits::default(),
         }

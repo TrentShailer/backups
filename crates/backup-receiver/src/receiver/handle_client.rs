@@ -186,6 +186,8 @@ impl Receiver {
 
                 total_bytes_read += bytes_read;
             }
+
+            info!("{context}Saved backup");
         }
 
         Ok(metadata)

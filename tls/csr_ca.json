@@ -1,5 +1,5 @@
 {
-    "CN": "Backups CA",
+    "CN": "Backup CA",
     "key": {
         "algo": "ecdsa",
         "size": 256

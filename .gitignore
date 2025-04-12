@@ -7,6 +7,7 @@ target
 # Ignore logs and backups
 **/logs
 **/backups
+**/history.json
 
 # Ignore certificates
 **/ssl

@@ -2,6 +2,7 @@
     "CN": "backups.trentshailer.com",
     "hosts": [
         "backups.trentshailer.com",
+        "localhost",
         "127.0.0.1"
     ],
     "key": {

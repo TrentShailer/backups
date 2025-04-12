@@ -28,7 +28,7 @@ tracing-appender = "0.2"
 thiserror = "2.0"
 
 # Timestamp
-chrono = "0.4" # TODO review
+chrono = "0.4"
 
 # Global allocator
 mimalloc = "0.1"

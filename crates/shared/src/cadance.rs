@@ -1,3 +1,4 @@
+use core::str::FromStr;
 use std::path::PathBuf;
 
 use serde::{Deserialize, Serialize};
@@ -41,6 +42,20 @@ impl Cadance {
         match value {
             0..=3 => Some(unsafe { core::mem::transmute::<u64, Self>(value) }),
             _ => None,
+        }
+    }
+}
+
+impl FromStr for Cadance {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "Hourly" => Ok(Self::Hourly),
+            "Daily" => Ok(Self::Daily),
+            "Weekly" => Ok(Self::Weekly),
+            "Monthly" => Ok(Self::Monthly),
+            _ => Err(format!("invalid cadance '{s}'")),
         }
     }
 }

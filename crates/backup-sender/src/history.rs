@@ -4,18 +4,63 @@
 use core::time::Duration;
 use std::{collections::HashMap, fs, io, path::PathBuf, time::SystemTime};
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de};
 use shared::Cadance;
 use thiserror::Error;
 use tracing::warn;
 
 const HISTORY_FILE: &str = "history.json";
 
+/// History key
+#[derive(Debug, Hash, PartialEq, Eq)]
+pub struct HistoryKey {
+    /// Service name.
+    pub service: String,
+    /// Backup cadance.
+    pub cadance: Cadance,
+}
+
+impl HistoryKey {
+    /// Create a new history key.
+    pub fn new(service: String, cadance: Cadance) -> Self {
+        Self { service, cadance }
+    }
+}
+
+impl<'de> Deserialize<'de> for HistoryKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let string: String = Deserialize::deserialize(deserializer)?;
+        let parts: Vec<_> = string.split("::").collect();
+        if parts.len() != 2 {
+            return Err(de::Error::custom("invalid key format"));
+        }
+
+        let service = parts[0].to_string();
+        let cadance = parts[1].parse().map_err(de::Error::custom)?;
+
+        Ok(Self { service, cadance })
+    }
+}
+
+impl Serialize for HistoryKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let service = &self.service;
+        let cadance = self.cadance;
+        serializer.serialize_str(&format!("{service}::{cadance:?}"))
+    }
+}
+
 /// The history of given cadances of a given service.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct History {
     /// The history
-    pub history: HashMap<(String, Cadance), SystemTime>,
+    pub history: HashMap<HistoryKey, SystemTime>,
 }
 
 impl History {
@@ -44,7 +89,7 @@ impl History {
 
     /// Returns if a given service's cadance needs to be backed up.
     pub fn needs_backup(&self, service_name: String, cadance: Cadance) -> bool {
-        let last_backed_up = match self.history.get(&(service_name, cadance)) {
+        let last_backed_up = match self.history.get(&HistoryKey::new(service_name, cadance)) {
             Some(backed_up) => backed_up,
             None => return true,
         };
@@ -72,7 +117,7 @@ impl History {
         cadance: Cadance,
     ) -> Result<(), SaveHistoryError> {
         self.history
-            .insert((service_name, cadance), SystemTime::now());
+            .insert(HistoryKey::new(service_name, cadance), SystemTime::now());
 
         self.save()?;
 

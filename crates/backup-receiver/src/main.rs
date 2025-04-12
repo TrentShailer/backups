@@ -1,4 +1,4 @@
-//! # Backups reciever
+//! # Backup reciever
 //! The webserver that receives backups from a sender.
 //!
 
@@ -21,13 +21,14 @@ fn main() {
         let config = Config::default();
         let contents =
             toml::to_string_pretty(&config).or_log_and_panic("Could not serialize config file");
-        fs::write("config.toml", contents).or_log_and_panic("Could not create config file");
+        fs::write("receiver-config.toml", contents)
+            .or_log_and_panic("Could not create config file");
         return;
     }
 
     // Load config
-    let config =
-        Config::load_toml(PathBuf::from("./config.toml")).or_log_and_panic("Could not load config");
+    let config = Config::load_toml(PathBuf::from("./receiver-config.toml"))
+        .or_log_and_panic("Could not load config");
     let address = config.socket_address;
 
     // Create receiver

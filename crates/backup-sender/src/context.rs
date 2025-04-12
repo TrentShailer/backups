@@ -16,6 +16,6 @@ pub struct Context {
 
 impl fmt::Display for Context {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "[{}/{:?}]", self.service_name, self.cadance)
+        write!(f, "[{}/{:?}] ", self.service_name, self.cadance)
     }
 }

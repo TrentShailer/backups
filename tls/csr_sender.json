@@ -1,5 +1,5 @@
 {
-    "CN": "Backups Sender",
+    "CN": "Backup Sender",
     "key": {
         "algo": "ecdsa",
         "size": 256
