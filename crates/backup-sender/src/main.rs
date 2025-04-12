@@ -1,6 +1,9 @@
 //! # backup-sender
 //!
 
+// hide console window on Windows in release
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 use core::time::Duration;
 use std::{fs, path::PathBuf, thread::sleep};
 

@@ -2,6 +2,9 @@
 //! The webserver that receives backups from a sender.
 //!
 
+// hide console window on Windows in release
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+
 #[global_allocator]
 static GLOBAL: MiMalloc = MiMalloc;
 
