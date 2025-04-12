@@ -13,6 +13,7 @@ target
 *.crt
 *.key
 *.pem
+*.csr
 
 # Ignore windows executable
 *.exe
