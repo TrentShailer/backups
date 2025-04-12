@@ -1,24 +1,61 @@
 [workspace]
 resolver = "2"
-members = ["src/*"]
+members = ["crates/*"]
+
+[workspace.package]
+edition = "2024"
+license = "MIT OR Apache-2.0"
+authors = ["Trent Shailer"]
+rust-version = "1.85"
 
 [workspace.dependencies]
-chrono = "0.4"
-fern = { version = "0.7", features = ["date-based"] }
-log = "0.4"
-rustls = { version = "0.23", default-features = false, features = [
-	"std",
-	"tls12",
-	"log",
-	"ring",
-] }
+# TLS
+rustls = "0.23"
 rustls-pemfile = "2.1"
 rustls-pki-types = "1.8"
+
+# Config
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 toml = "0.8"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = "0.3"
+tracing-appender = "0.2"
+
+# Error handling
 thiserror = "2.0"
 
-shared = { path = "src/shared" }
+# Timestamp
+chrono = "0.4"
 
-[profile.release]
-strip = true
+# Global allocator
+mimalloc = "0.1"
+
+# Workspace dependencies
+shared = { path = "crates/shared" }
+
+# Generating certiciates for testing
+rcgen = { version = "0.13" }
+
+[workspace.lints.rust]
+"missing_docs" = "warn"
+"unused_qualifications" = "warn"
+"rust_2018_idioms" = "warn"
+"deprecated_in_future" = "warn"
+
+[workspace.lints.clippy]
+"std_instead_of_core" = "warn"
+
+"use_self" = "warn"
+"cast_lossless" = "warn"
+"unnecessary_self_imports" = "warn"
+"inconsistent_struct_constructor" = "warn"
+
+"default_trait_access" = "warn"
+"clone_on_ref_ptr" = "warn"
+"todo" = "warn"
+
+"as_conversions" = "warn"
+"index_slicing" = "warn"

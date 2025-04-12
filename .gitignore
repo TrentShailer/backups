@@ -7,15 +7,19 @@ target
 # Ignore logs and backups
 **/logs
 **/backups
+**/history.json
 
 # Ignore certificates
 **/ssl
 *.crt
 *.key
 *.pem
+*.csr
 
 # Ignore windows executable
 *.exe
 
 # Ignore live directory
 live
+
+logs
