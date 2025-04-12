@@ -1,6 +1,7 @@
 //! Backup source to retreive backups.
 //!
 
+use core::fmt::{Debug, Display};
 use std::io::BufRead;
 
 use serde::{Deserialize, Serialize};
@@ -13,15 +14,21 @@ pub use docker_postgres::{DockerPostgres, DockerPostgresError};
 use crate::Backup;
 
 /// A source to make a backup of.
-pub trait BackupSource {
+pub trait BackupSource: Debug + Serialize + for<'a> Deserialize<'a> {
     /// Error variants.
-    type Error;
+    type Error: Display;
 
     /// Reader used to read the backup payload.
     type Reader: BufRead;
 
     /// Get a backup from the source.
     fn get_backup(&self, cadance: Cadance) -> Result<Backup<Self::Reader>, Self::Error>;
+
+    /// The cadances for the service.
+    fn cadance(&self) -> &[Cadance];
+
+    /// The service name being backed up.
+    fn service_name(&self) -> String;
 }
 
 #[allow(missing_docs)]

@@ -64,6 +64,14 @@ impl BackupSource for DockerPostgres {
             reader: Cursor::new(contents),
         })
     }
+
+    fn cadance(&self) -> &[Cadance] {
+        &self.cadance
+    }
+
+    fn service_name(&self) -> String {
+        self.service_name.as_string()
+    }
 }
 
 #[allow(missing_docs)]

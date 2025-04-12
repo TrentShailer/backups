@@ -1,6 +1,7 @@
 //! Backup Sender config
 //!
 
+use core::fmt::Debug;
 use std::{fs, path::PathBuf};
 
 use serde::{Deserialize, Serialize};
@@ -17,7 +18,7 @@ pub struct Config {
     /// The endpoint to send backups to.
     pub endpoint: Endpoint,
 
-    /// The sources  to retreive backups from.
+    /// The sources to retreive backups from.
     pub sources: Vec<Source>,
 }
 
