@@ -3,10 +3,10 @@ use std::{fs, io::ErrorKind, path::PathBuf, time::SystemTime};
 use shared::{Cadance, Metadata};
 use tracing::{error, warn};
 
-use crate::{Config, ContextLogger};
+use crate::{Config, Context};
 
 /// Cleanup any files over the limit for this backup's directory.
-pub fn cleanup(context: &mut ContextLogger, config: &Config, metadata: &Metadata) {
+pub fn cleanup(context: &mut Context, config: &Config, metadata: &Metadata) {
     context.current_context = "Cleanup";
 
     let max_files = match metadata.cadance {

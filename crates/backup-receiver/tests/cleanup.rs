@@ -3,7 +3,7 @@
 
 use std::fs;
 
-use backup_receiver::{Config, ContextLogger, cleanup};
+use backup_receiver::{Config, Context, cleanup};
 use common::clear_backups;
 use shared::{Cadance, Metadata, MetadataString};
 
@@ -29,7 +29,7 @@ fn cleanup_max_files() {
         fs::write(path, "Contents").unwrap();
     }
 
-    let mut context = ContextLogger::default();
+    let mut context = Context::default();
     cleanup(&mut context, &config, &metadata);
 
     let directory: Vec<_> = fs::read_dir(backup_directory).unwrap().collect();

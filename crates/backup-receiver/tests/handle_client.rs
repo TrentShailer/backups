@@ -4,7 +4,7 @@
 use core::net::{Ipv4Addr, SocketAddr, SocketAddrV4};
 use std::io::Cursor;
 
-use backup_receiver::ContextLogger;
+use backup_receiver::Context;
 use common::{check_backup_payload, clear_backups, test_receiver};
 use shared::{Cadance, Metadata, MetadataString, Response, test::CertificateAuthority};
 
@@ -14,7 +14,7 @@ mod common;
 fn handle_average_client() {
     let ca = CertificateAuthority::new();
     let mut receiver = test_receiver(&ca);
-    let mut context = ContextLogger::default();
+    let mut context = Context::default();
     let peer = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
 
     let payload = vec![0u8; 512];
@@ -48,7 +48,7 @@ fn handle_payload_timeout() {
     let ca = CertificateAuthority::new();
     let mut receiver = test_receiver(&ca);
     receiver.config.limits.timeout_seconds = 1;
-    let mut context = ContextLogger::default();
+    let mut context = Context::default();
     let peer = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
 
     let payload = vec![0u8; 256];
@@ -79,7 +79,7 @@ fn handle_payload_timeout() {
 fn handle_bad_metadata() {
     let ca = CertificateAuthority::new();
     let mut receiver = test_receiver(&ca);
-    let mut context = ContextLogger::default();
+    let mut context = Context::default();
     let peer = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
 
     let data = vec![0u8; size_of::<Metadata>() - 8];
@@ -94,7 +94,7 @@ fn handle_bad_metadata() {
 fn handle_invalid_metadata() {
     let ca = CertificateAuthority::new();
     let mut receiver = test_receiver(&ca);
-    let mut context = ContextLogger::default();
+    let mut context = Context::default();
     let peer = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::LOCALHOST, 0));
 
     let data = vec![0u8; size_of::<Metadata>()];

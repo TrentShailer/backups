@@ -9,7 +9,7 @@ use chrono::Utc;
 use shared::{Metadata, Response};
 use tracing::{error, info, warn};
 
-use crate::ContextLogger;
+use crate::Context;
 
 use super::Receiver;
 
@@ -17,7 +17,7 @@ impl Receiver {
     /// Handle a client connection
     pub fn handle_client<Read: BufRead>(
         &mut self,
-        context: &mut ContextLogger,
+        context: &mut Context,
         stream: &mut Read,
         peer: SocketAddr,
     ) -> Result<Metadata, Response> {

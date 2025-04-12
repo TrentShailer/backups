@@ -18,7 +18,7 @@ use shared::{CertificateError, Certificates, Response};
 use thiserror::Error;
 use tracing::{error, info, warn};
 
-use crate::{Config, cleanup, context_logger::ContextLogger};
+use crate::{Config, cleanup, context::Context};
 
 mod handle_client;
 
@@ -77,7 +77,7 @@ impl Receiver {
 
     /// Accept and handle a client.
     pub fn accept_and_handle_client(&mut self) {
-        let mut context = ContextLogger::default();
+        let mut context = Context::default();
 
         let (mut connection, mut stream, peer) = match self.accept_client(&mut context) {
             Ok(client) => client,
@@ -114,7 +114,7 @@ impl Receiver {
     /// Block until a client connects then accept the mTLS connection.
     pub fn accept_client(
         &mut self,
-        context: &mut ContextLogger,
+        context: &mut Context,
     ) -> Result<(ServerConnection, TcpStream, SocketAddr), AcceptError> {
         context.current_context = "Accept Client";
 
@@ -185,7 +185,7 @@ impl Receiver {
     /// Send a response to the sender and close the connection.
     pub fn send_response_and_close(
         &self,
-        context: &mut ContextLogger,
+        context: &mut Context,
         stream: &mut Stream<'_, ServerConnection, TcpStream>,
         response: Response,
     ) {

@@ -4,7 +4,7 @@ use shared::Cadance;
 
 /// Holds the context for the current connection. Used for prefixing logs.
 #[derive(Default, Debug)]
-pub struct ContextLogger {
+pub struct Context {
     /// The connection peer.
     pub peer: Option<IpAddr>,
     /// The backup for this connection.
@@ -13,7 +13,7 @@ pub struct ContextLogger {
     pub current_context: &'static str,
 }
 
-impl Display for ContextLogger {
+impl Display for Context {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         if let Some(peer) = &self.peer {
             write!(f, "[{peer}] ")?;

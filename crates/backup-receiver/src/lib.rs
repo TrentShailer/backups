@@ -3,10 +3,10 @@
 
 mod cleanup;
 mod config;
-mod context_logger;
+mod context;
 mod receiver;
 
 pub use cleanup::cleanup;
 pub use config::{Config, LoadConfigError};
-pub use context_logger::ContextLogger;
+pub use context::Context;
 pub use receiver::{CreateReceiverError, Receiver};
