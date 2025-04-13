@@ -35,10 +35,7 @@ pub struct Endpoint {
 
 impl Endpoint {
     /// Send a backup to the endpoint.
-    pub fn send_backup<Reader: io::BufRead>(
-        &self,
-        mut backup: crate::Backup<Reader>,
-    ) -> Result<(), SendBackupError> {
+    pub fn send_backup(&self, mut backup: crate::Backup) -> Result<(), SendBackupError> {
         // Load certificates and setup TLS config
         let certificates = Certificates::load(
             &self.root_certificate_file,

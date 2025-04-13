@@ -32,9 +32,8 @@ pub struct DockerPostgres {
 
 impl BackupSource for DockerPostgres {
     type Error = DockerPostgresError;
-    type Reader = Cursor<Vec<u8>>;
 
-    fn get_backup(&self, cadance: Cadance) -> Result<Backup<Self::Reader>, Self::Error> {
+    fn get_backup(&self, cadance: Cadance) -> Result<Backup, Self::Error> {
         let output = Command::new("docker")
             .args([
                 "exec",
@@ -61,7 +60,7 @@ impl BackupSource for DockerPostgres {
 
         Ok(Backup {
             metadata,
-            reader: Cursor::new(contents),
+            reader: Box::new(Cursor::new(contents)),
         })
     }
 

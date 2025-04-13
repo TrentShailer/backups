@@ -65,6 +65,14 @@ fn main() {
                         }
                     }
 
+                    Source::FolderTar(folder_tar) => match folder_tar.get_backup(*cadance) {
+                        Ok(backup) => backup,
+                        Err(error) => {
+                            error!("{context}Failed to get backup: {error}");
+                            continue;
+                        }
+                    },
+
                     Source::Mock(mock) => match mock.get_backup(*cadance) {
                         Ok(backup) => backup,
                         Err(error) => {

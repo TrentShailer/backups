@@ -21,9 +21,8 @@ pub struct Mock {
 
 impl BackupSource for Mock {
     type Error = TryFromIntError;
-    type Reader = Cursor<Vec<u8>>;
 
-    fn get_backup(&self, cadance: Cadance) -> Result<Backup<Self::Reader>, Self::Error> {
+    fn get_backup(&self, cadance: Cadance) -> Result<Backup, Self::Error> {
         let data = vec![0u8; 512];
         let backup_size = u64::try_from(data.len())?;
 
@@ -31,7 +30,7 @@ impl BackupSource for Mock {
 
         Ok(Backup {
             metadata,
-            reader: Cursor::new(data),
+            reader: Box::new(Cursor::new(data)),
         })
     }
 

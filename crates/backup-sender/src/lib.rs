@@ -1,7 +1,7 @@
 //! # backup-sender
 //!
 
-use std::io::BufRead;
+use std::io::Read;
 
 use shared::Metadata;
 
@@ -12,9 +12,9 @@ pub mod history;
 pub mod source;
 
 /// A backup.
-pub struct Backup<Reader: BufRead> {
+pub struct Backup {
     /// The backup's metadata.
     pub metadata: Metadata,
     /// The reader to read the backup payload.
-    pub reader: Reader,
+    pub reader: Box<dyn Read>,
 }
