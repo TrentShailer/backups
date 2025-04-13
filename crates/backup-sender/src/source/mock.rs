@@ -41,4 +41,6 @@ impl BackupSource for Mock {
     fn service_name(&self) -> String {
         self.service_name.as_string()
     }
+
+    fn cleanup(&self, _metadata: Metadata) {}
 }

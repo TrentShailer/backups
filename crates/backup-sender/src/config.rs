@@ -9,7 +9,7 @@ use thiserror::Error;
 
 use crate::{
     endpoint::Endpoint,
-    source::{DockerPostgres, Source},
+    source::{DockerPostgres, FolderTar, Source},
 };
 
 /// The receiver's config
@@ -40,7 +40,10 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             endpoint: Endpoint::default(),
-            sources: vec![Source::DockerPostgres(DockerPostgres::default())],
+            sources: vec![
+                Source::DockerPostgres(DockerPostgres::default()),
+                Source::FolderTar(FolderTar::default()),
+            ],
         }
     }
 }

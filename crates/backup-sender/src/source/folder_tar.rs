@@ -9,11 +9,13 @@ use std::{
 use serde::{Deserialize, Serialize};
 use shared::{Cadance, Metadata, MetadataString};
 use thiserror::Error;
+use tracing::{error, warn};
 
 use crate::Backup;
 
 use super::BackupSource;
 
+/// Tar a folder and back it up.
 #[derive(Default, Debug, Clone, Deserialize, Serialize)]
 pub struct FolderTar {
     /// The path to the folder.
@@ -82,6 +84,17 @@ impl BackupSource for FolderTar {
 
     fn service_name(&self) -> String {
         self.service_name.as_string()
+    }
+
+    fn cleanup(&self, metadata: Metadata) {
+        let service = self.service_name.as_string();
+        let cadance = metadata.cadance;
+
+        let archive_name = format!("{}-{:?}.tar", service, metadata.cadance);
+
+        if let Err(e) = fs::remove_file(archive_name) {
+            warn!("Failed to cleanup {service}::{cadance:?} : {e}")
+        }
     }
 }
 

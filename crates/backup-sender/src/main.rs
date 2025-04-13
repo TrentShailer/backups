@@ -7,12 +7,7 @@
 use core::time::Duration;
 use std::{fs, path::PathBuf, thread::sleep};
 
-use backup_sender::{
-    config::Config,
-    context::Context,
-    history::History,
-    source::{BackupSource, Source},
-};
+use backup_sender::{config::Config, context::Context, history::History, source::BackupSource};
 use mimalloc::MiMalloc;
 use shared::{Failure, init_logger};
 use tracing::{error, info};
@@ -54,33 +49,14 @@ fn main() {
 
                 info!("{context}Making backup");
 
-                let backup = match source {
-                    Source::DockerPostgres(docker_postgres) => {
-                        match docker_postgres.get_backup(*cadance) {
-                            Ok(backup) => backup,
-                            Err(error) => {
-                                error!("{context}Failed to get backup: {error}");
-                                continue;
-                            }
-                        }
+                let backup = match source.get_backup(*cadance) {
+                    Ok(backup) => backup,
+                    Err(error) => {
+                        error!("{context}Failed to get backup: {error}");
+                        continue;
                     }
-
-                    Source::FolderTar(folder_tar) => match folder_tar.get_backup(*cadance) {
-                        Ok(backup) => backup,
-                        Err(error) => {
-                            error!("{context}Failed to get backup: {error}");
-                            continue;
-                        }
-                    },
-
-                    Source::Mock(mock) => match mock.get_backup(*cadance) {
-                        Ok(backup) => backup,
-                        Err(error) => {
-                            error!("{context}Failed to get backup: {error}");
-                            continue;
-                        }
-                    },
                 };
+                let metadata = backup.metadata;
                 info!("{context}Got backup");
 
                 if let Err(error) = config.endpoint.send_backup(backup) {
@@ -93,6 +69,8 @@ fn main() {
                     error!("{context}Could not update history: {error}");
                     continue;
                 }
+
+                source.cleanup(metadata);
             }
         }
 

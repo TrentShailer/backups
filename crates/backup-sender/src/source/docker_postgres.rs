@@ -71,6 +71,8 @@ impl BackupSource for DockerPostgres {
     fn service_name(&self) -> String {
         self.service_name.as_string()
     }
+
+    fn cleanup(&self, _metadata: Metadata) {}
 }
 
 #[allow(missing_docs)]
