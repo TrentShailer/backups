@@ -1,0 +1,33 @@
+[package]
+name = "shared"
+version = "0.3.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+# TLS
+rustls = { workspace = true }
+rustls-pemfile = { workspace = true }
+rustls-pki-types = { workspace = true }
+
+# (De)serialization
+serde = { workspace = true }
+
+# Error handling
+thiserror = { workspace = true }
+
+# Logging
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
+
+# Generating certiciates for testing
+rcgen = { workspace = true, optional = true }
+
+[features]
+test = ["rcgen"]
+
+[lints]
+workspace = true
