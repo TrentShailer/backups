@@ -8,12 +8,8 @@ use core::time::Duration;
 use std::{fs, path::PathBuf, thread::sleep};
 
 use backup_sender::{config::Config, context::Context, history::History, source::BackupSource};
-use mimalloc::MiMalloc;
 use shared::{Failure, init_logger};
 use tracing::{error, info};
-
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
 
 fn main() {
     let _logger = init_logger();
@@ -37,19 +33,19 @@ fn main() {
 
     loop {
         for source in &config.sources {
-            for cadance in source.cadance() {
+            for cadence in source.cadence() {
                 let context = Context {
                     service_name: source.service_name(),
-                    cadance: *cadance,
+                    cadence: *cadence,
                 };
 
-                if !history.needs_backup(source.service_name(), *cadance) {
+                if !history.needs_backup(source.service_name(), *cadence) {
                     continue;
                 }
 
                 info!("{context}Making backup");
 
-                let backup = match source.get_backup(*cadance) {
+                let backup = match source.get_backup(*cadence) {
                     Ok(backup) => backup,
                     Err(error) => {
                         error!("{context}Failed to get backup: {error}");
@@ -65,7 +61,7 @@ fn main() {
                 }
                 info!("{context}Sent backup");
 
-                if let Err(error) = history.update(source.service_name(), *cadance) {
+                if let Err(error) = history.update(source.service_name(), *cadence) {
                     error!("{context}Could not update history: {error}");
                     continue;
                 }

@@ -1,6 +1,6 @@
 use std::{fs, io::ErrorKind, path::PathBuf, time::SystemTime};
 
-use shared::{Cadance, Metadata};
+use shared::{Cadence, Metadata};
 use tracing::{error, warn};
 
 use crate::{Config, Context};
@@ -9,11 +9,11 @@ use crate::{Config, Context};
 pub fn cleanup(context: &mut Context, config: &Config, metadata: &Metadata) {
     context.current_context = "Cleanup";
 
-    let max_files = match metadata.cadance {
-        Cadance::Hourly => config.limits.maximum_files.hourly,
-        Cadance::Daily => config.limits.maximum_files.daily,
-        Cadance::Weekly => config.limits.maximum_files.weekly,
-        Cadance::Monthly => config.limits.maximum_files.monthly,
+    let max_files = match metadata.cadence {
+        Cadence::Hourly => config.limits.maximum_files.hourly,
+        Cadence::Daily => config.limits.maximum_files.daily,
+        Cadence::Weekly => config.limits.maximum_files.weekly,
+        Cadence::Monthly => config.limits.maximum_files.monthly,
     };
     let max_files = usize::try_from(max_files).unwrap_or(usize::MAX);
 

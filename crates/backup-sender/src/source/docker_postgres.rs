@@ -5,7 +5,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use shared::{Cadance, Metadata, MetadataString};
+use shared::{Cadence, Metadata, MetadataString};
 use thiserror::Error;
 
 use super::{Backup, BackupSource};
@@ -26,14 +26,14 @@ pub struct DockerPostgres {
     /// The file extension.
     pub file_extension: MetadataString<32>,
 
-    /// The cadances to backup this source.
-    pub cadance: Vec<Cadance>,
+    /// The cadences to backup this source.
+    pub cadence: Vec<Cadence>,
 }
 
 impl BackupSource for DockerPostgres {
     type Error = DockerPostgresError;
 
-    fn get_backup(&self, cadance: Cadance) -> Result<Backup, Self::Error> {
+    fn get_backup(&self, cadence: Cadence) -> Result<Backup, Self::Error> {
         let output = Command::new("docker")
             .args([
                 "exec",
@@ -56,7 +56,7 @@ impl BackupSource for DockerPostgres {
         let contents = output.stdout;
         let backup_size = u64::try_from(contents.len())?;
 
-        let metadata = Metadata::new(backup_size, self.service_name, cadance, self.file_extension);
+        let metadata = Metadata::new(backup_size, self.service_name, cadence, self.file_extension);
 
         Ok(Backup {
             metadata,
@@ -64,8 +64,8 @@ impl BackupSource for DockerPostgres {
         })
     }
 
-    fn cadance(&self) -> &[Cadance] {
-        &self.cadance
+    fn cadence(&self) -> &[Cadence] {
+        &self.cadence
     }
 
     fn service_name(&self) -> String {

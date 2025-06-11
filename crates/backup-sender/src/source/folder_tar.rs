@@ -7,7 +7,7 @@ use std::{
 };
 
 use serde::{Deserialize, Serialize};
-use shared::{Cadance, Metadata, MetadataString};
+use shared::{Cadence, Metadata, MetadataString};
 use thiserror::Error;
 use tracing::{error, warn};
 
@@ -24,14 +24,14 @@ pub struct FolderTar {
     /// The service name.
     pub service_name: MetadataString<128>,
 
-    /// The cadances to backup this source.
-    pub cadance: Vec<Cadance>,
+    /// The cadences to backup this source.
+    pub cadence: Vec<Cadence>,
 }
 
 impl BackupSource for FolderTar {
     type Error = BackupFolderError;
 
-    fn get_backup(&self, cadance: Cadance) -> Result<Backup, Self::Error> {
+    fn get_backup(&self, cadence: Cadence) -> Result<Backup, Self::Error> {
         let folder_metadata = fs::metadata(&self.folder_path)
             .map_err(|e| BackupFolderError::Io(e, "get folder metadata"))?;
         if !folder_metadata.is_dir() {
@@ -42,7 +42,7 @@ impl BackupSource for FolderTar {
             Some(path) => path,
             None => return Err(BackupFolderError::NotUnicode),
         };
-        let archive_name = format!("{}-{:?}.tar", self.service_name.as_string(), cadance);
+        let archive_name = format!("{}-{:?}.tar", self.service_name.as_string(), cadence);
 
         let output = Command::new("tar")
             .args(["-cf", &archive_name, path_str])
@@ -66,7 +66,7 @@ impl BackupSource for FolderTar {
         let metadata = Metadata::new(
             file_size,
             self.service_name,
-            cadance,
+            cadence,
             MetadataString::try_from("tar").unwrap(),
         );
 
@@ -78,8 +78,8 @@ impl BackupSource for FolderTar {
         Ok(backup)
     }
 
-    fn cadance(&self) -> &[Cadance] {
-        &self.cadance
+    fn cadence(&self) -> &[Cadence] {
+        &self.cadence
     }
 
     fn service_name(&self) -> String {
@@ -88,12 +88,12 @@ impl BackupSource for FolderTar {
 
     fn cleanup(&self, metadata: Metadata) {
         let service = self.service_name.as_string();
-        let cadance = metadata.cadance;
+        let cadence = metadata.cadence;
 
-        let archive_name = format!("{}-{:?}.tar", service, metadata.cadance);
+        let archive_name = format!("{}-{:?}.tar", service, metadata.cadence);
 
         if let Err(e) = fs::remove_file(archive_name) {
-            warn!("Failed to cleanup {service}::{cadance:?} : {e}")
+            warn!("Failed to cleanup {service}::{cadence:?} : {e}")
         }
     }
 }

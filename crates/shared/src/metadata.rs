@@ -1,9 +1,8 @@
-use core::mem::offset_of;
 use std::path::PathBuf;
 
 use thiserror::Error;
 
-use crate::{Cadance, MetadataString, MetadataStringError};
+use crate::{Cadence, Endian, MetadataString, MetadataStringError};
 
 /// Metadata containing information about the backup payload.
 #[repr(C)]
@@ -15,11 +14,17 @@ pub struct Metadata {
     /// The name of the service this backup is for.
     pub service_name: MetadataString<128>,
 
-    /// The cadance of this backup
-    pub cadance: Cadance,
+    /// The cadence of this backup
+    pub cadence: Cadence,
 
     /// The file extension for the backup.
     pub file_extension: MetadataString<32>,
+
+    /// The endian of the numbers in the struct.
+    pub endian: Endian,
+
+    /// Padding to ensure remaining memory is not uninitialised for Metadata.
+    padding: [u8; 15],
 }
 
 impl Metadata {
@@ -27,14 +32,16 @@ impl Metadata {
     pub fn new(
         backup_bytes: u64,
         service_name: MetadataString<128>,
-        cadance: Cadance,
+        cadence: Cadence,
         file_extension: MetadataString<32>,
     ) -> Self {
         Self {
             backup_bytes,
             service_name,
-            cadance,
+            cadence,
             file_extension,
+            endian: Endian::current(),
+            padding: [0u8; 15],
         }
     }
 
@@ -42,99 +49,70 @@ impl Metadata {
     pub fn backup_directory(&self) -> PathBuf {
         PathBuf::from("backups")
             .join(self.service_name.as_string())
-            .join(self.cadance.as_path())
+            .join(self.cadence.as_path())
     }
 
-    /// Convert metadata to bytes with a big endian byte order for non-byte values.
-    pub fn as_be_bytes(&self) -> [u8; size_of::<Self>()] {
-        let mut bytes = [0u8; size_of::<Self>()];
-
-        {
-            const OFFSET: usize = offset_of!(Metadata, backup_bytes);
-            const END: usize = OFFSET + size_of::<u64>();
-            bytes[OFFSET..END].copy_from_slice(&self.backup_bytes.to_be_bytes());
-        }
-
-        {
-            const OFFSET: usize = offset_of!(Metadata, service_name);
-            const END: usize = OFFSET + size_of::<MetadataString<128>>();
-            bytes[OFFSET..END].copy_from_slice(self.service_name.as_bytes());
-        }
-
-        {
-            const OFFSET: usize = offset_of!(Metadata, cadance);
-            const END: usize = OFFSET + size_of::<Cadance>();
-            bytes[OFFSET..END].copy_from_slice(&self.cadance.to_be_bytes());
-        }
-
-        {
-            const OFFSET: usize = offset_of!(Metadata, file_extension);
-            const END: usize = OFFSET + size_of::<MetadataString<32>>();
-            bytes[OFFSET..END].copy_from_slice(self.file_extension.as_bytes());
-        }
-
-        bytes
+    /// Converts self to underlying bytes.
+    pub fn to_bytes(self) -> [u8; size_of::<Self>()] {
+        unsafe { core::mem::transmute::<Self, [u8; size_of::<Self>()]>(self) }
     }
+}
 
-    /// Try convert some bytes to an instance of metadata.
-    pub fn try_from_be_bytes(
-        bytes: [u8; size_of::<Self>()],
-    ) -> Result<Self, MetadataFromBytesError> {
-        let backup_bytes = {
-            const OFFSET: usize = offset_of!(Metadata, backup_bytes);
-            const SIZE: usize = size_of::<u64>();
-            const END: usize = OFFSET + SIZE;
-            let bytes: [u8; SIZE] = bytes[OFFSET..END].try_into().unwrap();
+impl TryFrom<&[u8]> for Metadata {
+    type Error = MetadataError;
 
-            u64::from_be_bytes(bytes)
-        };
+    /// Requires that `value` is exactly `size_of::<Self>()`.
+    fn try_from(value: &[u8]) -> Result<Self, Self::Error> {
+        // Metadata but using the underlying integer representations of the enums to validate them
+        // without potentially triggering undefined behaviour.
+        #[repr(C)]
+        #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+        struct SafeMetadata {
+            pub backup_bytes: u64,
+            pub service_name: MetadataString<128>,
+            pub cadence: u64,
+            pub file_extension: MetadataString<32>,
+            pub endian: u8,
+            pub padding: [u8; 15],
+        }
 
-        let service_name = {
-            const OFFSET: usize = offset_of!(Metadata, service_name);
-            const SIZE: usize = size_of::<MetadataString<128>>();
-            const END: usize = OFFSET + SIZE;
-            let bytes: [u8; SIZE] = bytes[OFFSET..END].try_into().unwrap();
+        let exact_bytes: [u8; size_of::<SafeMetadata>()] = value
+            .try_into()
+            .map_err(|_| MetadataError::WrongSize(size_of_val(value), size_of::<Self>()))?;
 
-            MetadataString::<128>::try_from(bytes.as_slice())
-                .map_err(MetadataFromBytesError::InvalidServiceName)?
-        };
+        // Interpret the bytes as an instance of `SafeMetadata`
+        let mut unverified_value: SafeMetadata = unsafe { core::mem::transmute(exact_bytes) };
 
-        let cadance = {
-            const OFFSET: usize = offset_of!(Metadata, cadance);
-            const SIZE: usize = size_of::<Cadance>();
-            const END: usize = OFFSET + SIZE;
-            let bytes: [u8; SIZE] = bytes[OFFSET..END].try_into().unwrap();
+        // Verify the `endian` field.
+        let value_endian = Endian::try_from_u8(unverified_value.endian)
+            .ok_or(MetadataError::InvalidEndian(unverified_value.endian))?;
 
-            let value = u64::from_be_bytes(bytes);
+        // Convert the value to native endian if required.
+        if !value_endian.is_current() {
+            unverified_value.backup_bytes = unverified_value.backup_bytes.swap_bytes();
+            unverified_value.cadence = unverified_value.cadence.swap_bytes();
+            unverified_value.endian = u8::from(Endian::current());
+        }
 
-            match Cadance::try_from_u64(value) {
-                Some(cadance) => cadance,
-                None => return Err(MetadataFromBytesError::InvalidCadance(value)),
-            }
-        };
+        // Validate remaining fields
+        MetadataString::<128>::validate_bytes(unverified_value.service_name.as_bytes())
+            .map_err(MetadataError::InvalidServiceName)?;
 
-        let file_extension = {
-            const OFFSET: usize = offset_of!(Metadata, file_extension);
-            const SIZE: usize = size_of::<MetadataString<32>>();
-            const END: usize = OFFSET + SIZE;
-            let bytes: [u8; SIZE] = bytes[OFFSET..END].try_into().unwrap();
+        MetadataString::<32>::validate_bytes(unverified_value.file_extension.as_bytes())
+            .map_err(MetadataError::InvalidFileExtension)?;
 
-            MetadataString::<32>::try_from(bytes.as_slice())
-                .map_err(MetadataFromBytesError::InvalidFileExtension)?
-        };
+        if !Cadence::is_valid(unverified_value.cadence) {
+            return Err(MetadataError::InvalidCadance(unverified_value.cadence));
+        }
 
-        Ok(Self {
-            backup_bytes,
-            service_name,
-            cadance,
-            file_extension,
-        })
+        // All fields uphold the invariants of Metadata, conversion is safe.
+        Ok(unsafe { core::mem::transmute::<SafeMetadata, Self>(unverified_value) })
     }
 }
 
 #[allow(missing_docs)]
-#[derive(Debug, Error)]
-pub enum MetadataFromBytesError {
+#[derive(Debug, Error, PartialEq, Eq)]
+pub enum MetadataError {
     #[error("Invalid service name: {0}")]
     InvalidServiceName(#[source] MetadataStringError),
 
@@ -143,4 +121,10 @@ pub enum MetadataFromBytesError {
 
     #[error("Invalid cadance: {0}")]
     InvalidCadance(u64),
+
+    #[error("Invalid endian (should be 0 or 1): {0}")]
+    InvalidEndian(u8),
+
+    #[error("Source is the wrong size: {0}/{1}")]
+    WrongSize(usize, usize),
 }

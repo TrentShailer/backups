@@ -58,11 +58,11 @@ impl Receiver {
                 })?;
 
             // Try cast the bytes to a Metadata instance.
-            let metadata: Metadata = Metadata::try_from_be_bytes(buffer)
+            let metadata = Metadata::try_from(buffer.as_slice())
                 .inspect_err(|e| warn!("{context}Invalid metadata: {e}"))
                 .map_err(|_| Response::BadData)?;
 
-            context.backup = Some((metadata.service_name.as_string(), metadata.cadance));
+            context.backup = Some((metadata.service_name.as_string(), metadata.cadence));
             info!("{context}Received metadata");
 
             metadata

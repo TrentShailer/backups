@@ -4,8 +4,9 @@
 
 #![warn(missing_docs)]
 
-mod cadance;
+mod cadence;
 mod certificates;
+mod endian;
 mod failure;
 mod logger;
 mod metadata;
@@ -14,10 +15,11 @@ mod response;
 #[cfg(feature = "test")]
 pub mod test;
 
-pub use cadance::Cadance;
+pub use cadence::Cadence;
 pub use certificates::{CertificateError, Certificates};
+pub use endian::Endian;
 pub use failure::Failure;
 pub use logger::{LoggerError, init_logger};
-pub use metadata::{Metadata, MetadataFromBytesError};
+pub use metadata::{Metadata, MetadataError};
 pub use metadata_string::{MetadataString, MetadataStringError};
 pub use response::Response;

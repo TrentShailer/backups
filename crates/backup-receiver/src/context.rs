@@ -1,6 +1,6 @@
 use core::{fmt::Display, net::IpAddr};
 
-use shared::Cadance;
+use shared::Cadence;
 
 /// Holds the context for the current connection. Used for prefixing logs.
 #[derive(Default, Debug)]
@@ -8,7 +8,7 @@ pub struct Context {
     /// The connection peer.
     pub peer: Option<IpAddr>,
     /// The backup for this connection.
-    pub backup: Option<(String, Cadance)>,
+    pub backup: Option<(String, Cadence)>,
     /// The current context
     pub current_context: &'static str,
 }
@@ -19,8 +19,8 @@ impl Display for Context {
             write!(f, "[{peer}] ")?;
         }
 
-        if let Some((service, cadance)) = &self.backup {
-            write!(f, "[{service}/{cadance:?}] ")?;
+        if let Some((service, cadence)) = &self.backup {
+            write!(f, "[{service}/{cadence:?}] ")?;
         }
 
         write!(f, "[{}] ", self.current_context)?;

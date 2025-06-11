@@ -8,7 +8,7 @@ use std::{
 
 use common::{check_backup_payload, clear_backups, test_client, test_receiver};
 use rustls::{AlertDescription, Stream};
-use shared::{Cadance, Metadata, MetadataString, Response, test::CertificateAuthority};
+use shared::{Cadence, Metadata, MetadataString, Response, test::CertificateAuthority};
 
 mod common;
 
@@ -34,12 +34,12 @@ fn average_client() {
     let metadata = Metadata::new(
         512,
         MetadataString::try_from("average_client").unwrap(),
-        Cadance::Daily,
+        Cadence::Daily,
         MetadataString::try_from("test").unwrap(),
     );
     clear_backups(&metadata);
 
-    stream.write_all(&metadata.as_be_bytes()).unwrap();
+    stream.write_all(&metadata.to_bytes()).unwrap();
     stream.write_all(&payload).unwrap();
     stream.flush().unwrap();
     let mut response_buffer = [0u8; size_of::<Response>()];
@@ -108,12 +108,12 @@ fn short_payload() {
     let metadata = Metadata::new(
         512,
         MetadataString::try_from("short_payload").unwrap(),
-        Cadance::Daily,
+        Cadence::Daily,
         MetadataString::try_from("test").unwrap(),
     );
     clear_backups(&metadata);
 
-    stream.write_all(&metadata.as_be_bytes()).unwrap();
+    stream.write_all(&metadata.to_bytes()).unwrap();
     stream.write_all(&payload).unwrap();
     stream.flush().unwrap();
     let mut response_buffer = [0u8; size_of::<Response>()];

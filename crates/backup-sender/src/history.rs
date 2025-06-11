@@ -5,7 +5,7 @@ use core::time::Duration;
 use std::{collections::HashMap, fs, io, path::PathBuf, time::SystemTime};
 
 use serde::{Deserialize, Serialize, de};
-use shared::Cadance;
+use shared::Cadence;
 use thiserror::Error;
 use tracing::warn;
 
@@ -16,14 +16,14 @@ const HISTORY_FILE: &str = "history.json";
 pub struct HistoryKey {
     /// Service name.
     pub service: String,
-    /// Backup cadance.
-    pub cadance: Cadance,
+    /// Backup cadence.
+    pub cadence: Cadence,
 }
 
 impl HistoryKey {
     /// Create a new history key.
-    pub fn new(service: String, cadance: Cadance) -> Self {
-        Self { service, cadance }
+    pub fn new(service: String, cadence: Cadence) -> Self {
+        Self { service, cadence }
     }
 }
 
@@ -39,9 +39,9 @@ impl<'de> Deserialize<'de> for HistoryKey {
         }
 
         let service = parts[0].to_string();
-        let cadance = parts[1].parse().map_err(de::Error::custom)?;
+        let cadence = parts[1].parse().map_err(de::Error::custom)?;
 
-        Ok(Self { service, cadance })
+        Ok(Self { service, cadence })
     }
 }
 
@@ -51,12 +51,12 @@ impl Serialize for HistoryKey {
         S: serde::Serializer,
     {
         let service = &self.service;
-        let cadance = self.cadance;
-        serializer.serialize_str(&format!("{service}::{cadance:?}"))
+        let cadence = self.cadence;
+        serializer.serialize_str(&format!("{service}::{cadence:?}"))
     }
 }
 
-/// The history of given cadances of a given service.
+/// The history of given cadences of a given service.
 #[derive(Debug, Deserialize, Serialize)]
 pub struct History {
     /// The history
@@ -87,9 +87,9 @@ impl History {
         Ok(config)
     }
 
-    /// Returns if a given service's cadance needs to be backed up.
-    pub fn needs_backup(&self, service_name: String, cadance: Cadance) -> bool {
-        let last_backed_up = match self.history.get(&HistoryKey::new(service_name, cadance)) {
+    /// Returns if a given service's cadence needs to be backed up.
+    pub fn needs_backup(&self, service_name: String, cadence: Cadence) -> bool {
+        let last_backed_up = match self.history.get(&HistoryKey::new(service_name, cadence)) {
             Some(backed_up) => backed_up,
             None => return true,
         };
@@ -102,22 +102,22 @@ impl History {
             }
         };
 
-        match cadance {
-            Cadance::Hourly => elapsed >= Duration::from_secs(60 * 60),
-            Cadance::Daily => elapsed >= Duration::from_secs(60 * 60 * 24),
-            Cadance::Weekly => elapsed >= Duration::from_secs(60 * 60 * 24 * 7),
-            Cadance::Monthly => elapsed >= Duration::from_secs(60 * 60 * 24 * 30),
+        match cadence {
+            Cadence::Hourly => elapsed >= Duration::from_secs(60 * 60),
+            Cadence::Daily => elapsed >= Duration::from_secs(60 * 60 * 24),
+            Cadence::Weekly => elapsed >= Duration::from_secs(60 * 60 * 24 * 7),
+            Cadence::Monthly => elapsed >= Duration::from_secs(60 * 60 * 24 * 30),
         }
     }
 
-    /// Update the history for a given cadance and save.
+    /// Update the history for a given cadence and save.
     pub fn update(
         &mut self,
         service_name: String,
-        cadance: Cadance,
+        cadence: Cadence,
     ) -> Result<(), SaveHistoryError> {
         self.history
-            .insert(HistoryKey::new(service_name, cadance), SystemTime::now());
+            .insert(HistoryKey::new(service_name, cadence), SystemTime::now());
 
         self.save()?;
 

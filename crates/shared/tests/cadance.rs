@@ -1,16 +1,16 @@
-#![allow(missing_docs)]
+#![allow(missing_docs, non_snake_case)]
 
-use shared::Cadance;
+use shared::Cadence;
 
 #[test]
-pub fn valid_cadance() {
+pub fn TryFromU64_Valid_IsCorrect() {
     let value = 3;
-    let cadance = Cadance::try_from_u64(value).unwrap();
-    assert_eq!(cadance, Cadance::Monthly);
+    let cadence = Cadence::try_from_u64(value).unwrap();
+    assert_eq!(cadence, Cadence::Monthly);
 }
 
 #[test]
-pub fn invalid_value() {
+pub fn TryFromU64_Invalid_IsNone() {
     let value = u64::MAX;
-    assert!(Cadance::try_from_u64(value).is_none());
+    assert!(Cadence::try_from_u64(value).is_none());
 }

@@ -2,7 +2,7 @@ use core::num::TryFromIntError;
 use std::io::Cursor;
 
 use serde::{Deserialize, Serialize};
-use shared::{Cadance, Metadata, MetadataString};
+use shared::{Cadence, Metadata, MetadataString};
 
 use super::{Backup, BackupSource};
 
@@ -15,18 +15,18 @@ pub struct Mock {
     /// The file extension.
     pub file_extension: MetadataString<32>,
 
-    /// The cadances to backup this source.
-    pub cadance: Vec<Cadance>,
+    /// The cadences to backup this source.
+    pub cadence: Vec<Cadence>,
 }
 
 impl BackupSource for Mock {
     type Error = TryFromIntError;
 
-    fn get_backup(&self, cadance: Cadance) -> Result<Backup, Self::Error> {
+    fn get_backup(&self, cadence: Cadence) -> Result<Backup, Self::Error> {
         let data = vec![0u8; 512];
         let backup_size = u64::try_from(data.len())?;
 
-        let metadata = Metadata::new(backup_size, self.service_name, cadance, self.file_extension);
+        let metadata = Metadata::new(backup_size, self.service_name, cadence, self.file_extension);
 
         Ok(Backup {
             metadata,
@@ -34,8 +34,8 @@ impl BackupSource for Mock {
         })
     }
 
-    fn cadance(&self) -> &[Cadance] {
-        &self.cadance
+    fn cadence(&self) -> &[Cadence] {
+        &self.cadence
     }
 
     fn service_name(&self) -> String {

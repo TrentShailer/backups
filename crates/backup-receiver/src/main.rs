@@ -5,13 +5,9 @@
 // hide console window on Windows in release
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-#[global_allocator]
-static GLOBAL: MiMalloc = MiMalloc;
-
 use std::{fs, path::PathBuf};
 
 use backup_receiver::{Config, Receiver};
-use mimalloc::MiMalloc;
 
 use shared::{Failure, init_logger};
 use tracing::info;

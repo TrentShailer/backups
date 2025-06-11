@@ -47,7 +47,7 @@ pub struct Limits {
     /// This is a sliding window.
     pub maximum_backups_per_hour: usize,
 
-    /// The maximum number of files to store for each cadance.
+    /// The maximum number of files to store for each cadence.
     pub maximum_files: MaximumFiles,
 
     /// The maximum duration to receive the payload or metadata in seconds.

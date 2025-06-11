@@ -5,7 +5,7 @@ use core::fmt::{Debug, Display};
 
 use mock::Mock;
 use serde::{Deserialize, Serialize};
-use shared::{Cadance, Metadata};
+use shared::{Cadence, Metadata};
 
 mod docker_postgres;
 mod folder_tar;
@@ -23,13 +23,13 @@ pub trait BackupSource: Debug + Serialize + for<'a> Deserialize<'a> {
     type Error: Display;
 
     /// Get a backup from the source.
-    fn get_backup(&self, cadance: Cadance) -> Result<Backup, Self::Error>;
+    fn get_backup(&self, cadence: Cadence) -> Result<Backup, Self::Error>;
 
     /// Cleanup after the backup has finished.
     fn cleanup(&self, metadata: Metadata);
 
-    /// The cadances for the service.
-    fn cadance(&self) -> &[Cadance];
+    /// The cadences for the service.
+    fn cadence(&self) -> &[Cadence];
 
     /// The service name being backed up.
     fn service_name(&self) -> String;
@@ -44,12 +44,12 @@ pub enum Source {
 }
 
 impl Source {
-    /// The cadance of the backup.
-    pub fn cadance(&self) -> &[Cadance] {
+    /// The cadence of the backup.
+    pub fn cadence(&self) -> &[Cadence] {
         match self {
-            Self::DockerPostgres(docker_postgres) => &docker_postgres.cadance,
-            Self::FolderTar(folder_tar) => &folder_tar.cadance,
-            Self::Mock(mock) => &mock.cadance,
+            Self::DockerPostgres(docker_postgres) => &docker_postgres.cadence,
+            Self::FolderTar(folder_tar) => &folder_tar.cadence,
+            Self::Mock(mock) => &mock.cadence,
         }
     }
 
@@ -66,11 +66,11 @@ impl Source {
 impl BackupSource for Source {
     type Error = SourceError;
 
-    fn get_backup(&self, cadance: Cadance) -> Result<Backup, Self::Error> {
+    fn get_backup(&self, cadence: Cadence) -> Result<Backup, Self::Error> {
         match self {
-            Self::DockerPostgres(docker_postgres) => Ok(docker_postgres.get_backup(cadance)?),
-            Self::FolderTar(folder_tar) => Ok(folder_tar.get_backup(cadance)?),
-            Self::Mock(mock) => Ok(mock.get_backup(cadance)?),
+            Self::DockerPostgres(docker_postgres) => Ok(docker_postgres.get_backup(cadence)?),
+            Self::FolderTar(folder_tar) => Ok(folder_tar.get_backup(cadence)?),
+            Self::Mock(mock) => Ok(mock.get_backup(cadence)?),
         }
     }
 
@@ -82,11 +82,11 @@ impl BackupSource for Source {
         }
     }
 
-    fn cadance(&self) -> &[Cadance] {
+    fn cadence(&self) -> &[Cadence] {
         match self {
-            Self::DockerPostgres(docker_postgres) => &docker_postgres.cadance,
-            Self::FolderTar(folder_tar) => &folder_tar.cadance,
-            Self::Mock(mock) => &mock.cadance,
+            Self::DockerPostgres(docker_postgres) => &docker_postgres.cadence,
+            Self::FolderTar(folder_tar) => &folder_tar.cadence,
+            Self::Mock(mock) => &mock.cadence,
         }
     }
 

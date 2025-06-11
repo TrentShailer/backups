@@ -67,7 +67,7 @@ impl Endpoint {
 
         // Write the metadata
         stream
-            .write_all(&backup.metadata.as_be_bytes())
+            .write_all(&backup.metadata.to_bytes())
             .map_err(|e| SendBackupError::Io(e, "write metadata"))?;
 
         // Write the payload

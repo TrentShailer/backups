@@ -1,20 +1,18 @@
 [package]
 name = "backup-sender"
-version = "0.1.0"
+version = "0.2.0"
+
+authors.workspace = true
 edition.workspace = true
 license.workspace = true
-authors.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-# Allocator
-mimalloc = { workspace = true }
-
 # Logging
 tracing = { workspace = true }
 
 # TLS
-rustls = { workspace = true }
+rustls = { workspace = true, default-features = true }
 
 # Config
 serde = { workspace = true }
@@ -28,12 +26,8 @@ thiserror = { workspace = true }
 shared = { workspace = true }
 
 [dev-dependencies]
-shared = { workspace = true, features = ["test"] }
 rcgen = { workspace = true }
-
-
-[features]
-mimalloc_debug = ["mimalloc/debug"]
+shared = { workspace = true, features = ["test"] }
 
 [lints]
 workspace = true
